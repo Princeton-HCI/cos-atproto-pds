@@ -245,15 +245,10 @@ async def handle_firehose():
                                 desc_emb = encode_onnx(description).tolist()[0][0]
                                 posts_emb = encode_onnx(posts_text).tolist()[0][0]
 
-                                display_name_emb_str = f"[{','.join(map(str, display_name_emb))}]"
-                                handle_emb_str = f"[{','.join(map(str, handle_emb))}]"
-                                desc_emb_str = f"[{','.join(map(str, desc_emb))}]"
-                                posts_emb_str = f"[{','.join(map(str, posts_emb))}]"
-
                                 await db.execute(
                                     UPSERT_AUTHOR_SQL,
                                     repo, handle, display_name, description, posts_text,
-                                    display_name_emb_str, handle_emb_str, desc_emb_str, posts_emb_str,
+                                    display_name_emb, handle_emb, desc_emb, posts_emb,
                                     followers_count, follows_count, posts_count, updated_at
                                 )
                                 logger.info(f"Inserted new author {repo} ({handle}) with {followers_count} followers")
@@ -261,14 +256,13 @@ async def handle_firehose():
                                 # Update existing author’s recent posts
                                 posts_text = combined_text[:500]
                                 posts_emb = encode_onnx(posts_text).tolist()[0][0]
-                                posts_emb_str = f"[{','.join(map(str, posts_emb))}]"
                                 await db.execute("""
                                     UPDATE authors
                                     SET posts_text = LEFT($1 || posts_text, 500),
                                         posts_embedding = $2,
                                         updated_at = GREATEST($3, updated_at)
                                     WHERE id = $4
-                                """, posts_text, posts_emb_str, created_at, repo)
+                                """, posts_text, posts_emb, created_at, repo)
                                 logger.info(f"Updated author {repo}")
 
                         except Exception as e:

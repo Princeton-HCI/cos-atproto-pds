@@ -140,24 +140,11 @@ sudo pip3 install --break-system-packages \
     transformers
 ```
 
-Copy the example file .env and open it in a text editor:
-
-```bash
-cp .env.example .env
-nano .env
-```
-
-- `DB_HOST` – The IP (public or private) of your Cloud SQL instance from the setup steps.
-- `DB_PORT` – Usually `5432` for PostgreSQL (set when you created the database).
-- `DB_NAME` – The database name you created in Cloud SQL.
-- `DB_USER` – The database user you created during the DB setup.
-- `DB_PASSWORD` – The password for the DB user you set in the earlier steps.
-
 ---
 
-## 8. Python Scripts
+## 8. PDS Embeddings-Powered Search API + Python Scripts
 
-All the Python files you need are included in this repository. Simply clone the repo and navigate into the project directory to access them:
+This repository comes bundled with a full suite of Python scripts designed to make interacting with your PDS (Personal Data Server) seamless and powerful. These scripts leverage embeddings-based search, enabling you to perform advanced, semantic queries across your feeds and data—far beyond simple keyword matching. Simply clone the repo and navigate into the project directory to access them:
 
 ```bash
 git clone https://github.com/Princeton-HCI/cos-atproto-pds.git
@@ -171,11 +158,28 @@ The files included are:
 - `prune.py` — to clean older posts out of the Cloud SQL database
 - `api.py` — FastAPI-based search API
 
+It is imparitive to run each script manually in the order listed above to ensure the service is working properly.
+
+Before running them however, update the example .env file in a text editor:
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+- `DB_HOST` – The IP (public or private) of your Cloud SQL instance from the setup steps.
+- `DB_PORT` – Usually `5432` for PostgreSQL (set when you created the database).
+- `DB_NAME` – The database name you created in Cloud SQL.
+- `DB_USER` – The database user you created during the DB setup.
+- `DB_PASSWORD` – The password for the DB user you set in the earlier steps.
+
+Once all the environment variables are in place, run the four python scripts.
+
 ---
 
 ## 9. Shell Scripts to Manage Services
 
-The repository also includes shell scripts to run each service:
+The repository also includes shell scripts to perpetually run each service in the background:
 
 - `run_ingest.sh`
 - `run_prune.sh`

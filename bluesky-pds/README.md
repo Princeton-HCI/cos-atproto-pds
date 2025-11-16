@@ -212,6 +212,7 @@ Your PDS likely already uses Caddy via Docker.
 ### Find Caddy Container:
 
 ```bash
+cd ~
 sudo docker ps
 ```
 
@@ -222,7 +223,7 @@ Look for the container running the `caddy:2` image.
 Caddy config is mounted, often at:
 
 ```bash
-/pds/caddy/etc/caddy/Caddyfile
+sudo /pds/caddy/etc/caddy/Caddyfile
 ```
 
 Edit it:

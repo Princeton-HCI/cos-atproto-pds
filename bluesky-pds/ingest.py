@@ -173,7 +173,14 @@ async def handle_firehose():
         user=DB_USER,
         password=DB_PASSWORD,
         database=DB_NAME,
-        ssl="require"
+        ssl="require",
+        init=lambda conn: conn.set_type_codec(
+            'vector',
+            encoder=lambda v: "[" + ",".join(map(str, v)) + "]",
+            decoder=json.loads,
+            schema='public',
+            format='text'
+        )
     )
 
     async with aiohttp.ClientSession() as session:
@@ -210,7 +217,6 @@ async def handle_firehose():
 
                             # Generate post embedding
                             post_embedding = encode_onnx(combined_text).tolist()[0][0]
-                            post_embedding_str = f"[{','.join(map(str, post_embedding))}]"
 
                             # Insert post
                             await db.execute(

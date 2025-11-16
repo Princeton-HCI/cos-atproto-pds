@@ -113,9 +113,11 @@ You can check for signs of life with the command `cat output.json`. More on Jets
 
 ## 6. Install and Configure PDS
 
-Follow official guide:
+For this you can follow official guide from the section titled 'Configure DNS for your domain' onwards:
 
-- [https://atproto.com/guides/self-hosting](https://atproto.com/guides/self-hosting)
+- [https://atproto.com/guides/self-hosting#configure-dns-for-your-domain](https://atproto.com/guides/self-hosting#configure-dns-for-your-domain)
+
+Once done you can return here and continue onwards.
 
 ---
 

@@ -10,33 +10,64 @@ from dotenv import load_dotenv
 import onnxruntime as ort
 from transformers import AutoTokenizer
 import logging
-from collections import defaultdict
 
-# Logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+# Logging setup
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
 logger = logging.getLogger(__name__)
 
+# Environment setup
 load_dotenv()
 
-# DB Config
 DB_HOST = os.getenv("DB_HOST")
 DB_PORT = int(os.getenv("DB_PORT", 5432))
 DB_NAME = os.getenv("DB_NAME")
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 
-# ONNX model
+# ONNX model setup
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "all-MiniLM-L6-v2.onnx")
 TOKENIZER_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+
 tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_NAME)
 session = ort.InferenceSession(MODEL_PATH, providers=["CPUExecutionProvider"])
 
 FIREHOSE_URL = "wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsky.feed.post"
 
-# Profile cache
-profile_cache = defaultdict(dict)  # did -> profile dict
+# SQL Definitions
+CREATE_POSTS_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS posts (
+    id SERIAL PRIMARY KEY,
+    repo TEXT,
+    rkey TEXT,
+    cid TEXT,
+    text TEXT,
+    created_at TIMESTAMP,
+    embedding VECTOR(384),
+    raw JSONB
+);
+"""
 
-# DB queries
+CREATE_AUTHORS_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS authors (
+    id TEXT PRIMARY KEY,
+    handle TEXT,
+    display_name TEXT,
+    description TEXT,
+    posts_text TEXT,
+    display_name_embedding VECTOR(384),
+    handle_embedding VECTOR(384),
+    description_embedding VECTOR(384),
+    posts_embedding VECTOR(384),
+    followers_count INTEGER DEFAULT 0,
+    follows_count INTEGER DEFAULT 0,
+    posts_count INTEGER DEFAULT 0,
+    updated_at TIMESTAMP
+);
+"""
+
 INSERT_POST_SQL = """
 INSERT INTO posts (repo, rkey, cid, text, created_at, embedding, raw)
 VALUES ($1, $2, $3, $4, $5, $6, $7);
@@ -65,8 +96,28 @@ SET
     updated_at = GREATEST(EXCLUDED.updated_at, authors.updated_at);
 """
 
-# Helpers
+
+# Database initialization
+async def init_db():
+    """Connects to DB and ensures tables exist."""
+    conn = await asyncpg.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=DB_NAME,
+        ssl="require"
+    )
+    await conn.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+    await conn.execute(CREATE_POSTS_TABLE_SQL)
+    await conn.execute(CREATE_AUTHORS_TABLE_SQL)
+    await conn.close()
+    logger.info("Database initialized and tables ensured.")
+
+
+# Helper functions
 def encode_onnx(texts):
+    """Return embedding vectors using the ONNX model."""
     if isinstance(texts, str):
         texts = [texts]
     inputs = tokenizer(texts, padding=True, truncation=True, return_tensors="np")
@@ -78,6 +129,7 @@ def encode_onnx(texts):
     return embeddings
 
 def extract_text(record):
+    """Extract post text + alt text from embedded images."""
     text = record.get("text", "")
     alt_texts = []
     embed = record.get("embed", {})
@@ -86,18 +138,17 @@ def extract_text(record):
             alt = img.get("alt")
             if alt:
                 alt_texts.append(alt)
-    return (text + " " + " ".join(alt_texts)).strip()
+    combined_text = text + " " + " ".join(alt_texts)
+    return combined_text.strip()
 
 async def fetch_profile(session, did):
-    if did in profile_cache:
-        return profile_cache[did]
-
+    """Fetch profile info for a DID from Bluesky API."""
     url = f"https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor={did}"
     try:
         async with session.get(url, timeout=10) as resp:
             if resp.status == 200:
                 data = await resp.json()
-                profile = {
+                return {
                     "handle": data.get("handle"),
                     "display_name": data.get("displayName", ""),
                     "description": data.get("description", ""),
@@ -105,11 +156,13 @@ async def fetch_profile(session, did):
                     "follows_count": data.get("followsCount", 0),
                     "posts_count": data.get("postsCount", 0),
                 }
-                profile_cache[did] = profile
-                return profile
+            else:
+                logger.warning(f"Failed to fetch profile for {did}: {resp.status}")
+                return None
     except Exception as e:
         logger.error(f"Error fetching profile for {did}: {e}")
-    return None
+        return None
+
 
 # DB worker
 async def db_worker(queue, db):
@@ -183,6 +236,9 @@ async def handle_firehose():
             format='text'
         )
     )
+
+    # Ensure tables exist
+    await init_db(db)
 
     db_queue = asyncio.Queue()
     asyncio.create_task(db_worker(db_queue, db))

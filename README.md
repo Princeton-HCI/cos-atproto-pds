@@ -85,3 +85,14 @@ bluesky-pds → provides embeddings, author/post tables, and search API used by 
 | bluesky-pds                    | Backend PDS, embeddings, posts/authors tables, search API        |
 | bluesky-feed-ruleset-generator | Converts natural language requests into structured feed rulesets |
 | bluesky-feed-manager           | Deploys and dynamically maintains feeds on Bluesky               |
+
+---
+
+## ⚙️ Recommended Build Order
+
+To ensure all dependencies work correctly, the services should be built and started in the following order:
+
+1. **bluesky-pds** — must run first so that embeddings, posts/authors tables, and the search API are available.
+2. **bluesky-feed-ruleset-generator** — relies on `bluesky-pds` to generate feed rulesets.
+3. **bluesky-feed-manager** — depends on the rulesets produced by the generator to deploy feeds.
+4. **bonsai2** — frontend can be started last to interact with the live feed generation and management pipeline.

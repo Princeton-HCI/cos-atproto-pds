@@ -215,7 +215,7 @@ async def handle_firehose():
                             # Insert post
                             await db.execute(
                                 INSERT_POST_SQL,
-                                repo, rkey, cid, combined_text, created_at, post_embedding_str, record_json
+                                repo, rkey, cid, combined_text, created_at, post_embedding, record_json
                             )
                             logger.info(f"Inserted post from {repo}")
 

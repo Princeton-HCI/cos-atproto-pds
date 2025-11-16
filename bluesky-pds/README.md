@@ -269,6 +269,104 @@ You should get results from your ingested posts.
 
 ---
 
+## 12. Create and Save Google Cloud SQL Studio Queries
+
+Access **Cloud SQL Query Editor**:
+
+1. Go to [Google Cloud Console → SQL → Your Instance](https://console.cloud.google.com/sql).
+2. Click **Query Editor** in the left menu.
+3. Select your database from the dropdown.
+
+### 1. Authors vector indexes
+
+**`addAuthorsVectorIndex`**
+
+```sql
+CREATE INDEX IF NOT EXISTS authors_display_name_embedding_idx
+    ON authors USING ivfflat (display_name_embedding vector_l2_ops)
+    WITH (lists = 200);
+
+CREATE INDEX IF NOT EXISTS authors_handle_embedding_idx
+    ON authors USING ivfflat (handle_embedding vector_l2_ops)
+    WITH (lists = 200);
+
+CREATE INDEX IF NOT EXISTS authors_description_embedding_idx
+    ON authors USING ivfflat (description_embedding vector_l2_ops)
+    WITH (lists = 200);
+
+CREATE INDEX IF NOT EXISTS authors_posts_embedding_idx
+    ON authors USING ivfflat (posts_embedding vector_l2_ops)
+    WITH (lists = 200);
+
+ANALYZE authors;
+```
+
+### 2. Posts vector index
+
+**`addPostsVectorIndex`**
+
+```sql
+CREATE INDEX IF NOT EXISTS posts_embedding_idx
+    ON posts USING ivfflat (embedding vector_l2_ops)
+    WITH (lists = 200);
+
+ANALYZE posts;
+```
+
+### 3. Drop tables
+
+**`dropAuthors`**
+
+```sql
+DROP TABLE
+  "public"."authors";
+```
+
+**`dropPosts`**
+
+```sql
+DROP TABLE
+  "public"."posts";
+```
+
+### 4. Quick stats and previews
+
+**`getAuthors1k`**
+
+```sql
+SELECT *
+FROM authors
+ORDER BY updated_at DESC
+LIMIT 1000;
+```
+
+**`getAuthorsCount`**
+
+```sql
+SELECT COUNT(*) AS author_count
+FROM authors;
+```
+
+**`getPosts1k`**
+
+```sql
+SELECT *
+FROM posts
+ORDER BY created_at DESC
+LIMIT 1000;
+```
+
+**`getPostsCount`**
+
+```sql
+SELECT COUNT(*) AS post_count
+FROM posts;
+```
+
+Each query now has a clear name label for easier reference and saving in Cloud SQL Studio.
+
+---
+
 ## ✅ Done
 
 You now have a working:

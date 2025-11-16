@@ -183,8 +183,6 @@ async def handle_firehose():
         )
     )
 
-    await init_db()
-
     async with aiohttp.ClientSession() as session:
         while True:
             try:
@@ -279,6 +277,7 @@ async def handle_firehose():
 
 # Entrypoint
 async def main():
+    await init_db()
     await handle_firehose()
 
 if __name__ == "__main__":

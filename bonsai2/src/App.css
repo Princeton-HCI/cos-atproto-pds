@@ -1,0 +1,277 @@
+.app-container {
+  display: flex;
+  background: #f3f6fb;
+  min-height: 100vh;
+  font-family: sans-serif;
+  justify-content: center;
+  align-items: flex-start;
+  font-family: sans-serif;
+}
+
+.ui-col {
+  flex: 1;
+  padding: 20px;
+  margin-left: 20%;
+  margin-right: 20%;
+}
+
+.panel {
+  background: white;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 20px;
+  border: 1px solid #e2e2e2;
+}
+.panel-title {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* Login screen */
+.login-container {
+  max-width: 480px;
+  margin: 80px auto;
+  text-align: center;
+  padding: 20px;
+}
+
+.login-title {
+  font-size: 32px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.login-sub {
+  color: #555;
+  margin-bottom: 32px;
+  line-height: 1.4;
+}
+
+.login-form {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.login-form input {
+  padding: 12px;
+  font-size: 16px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+.login-btn {
+  background: #007aff;
+  color: white;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 20px;
+  font-weight: bold;
+  font-size: 20px;
+}
+.login-btn:hover {
+  background: #0060d4;
+}
+
+.error {
+  color: #d62828;
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+/* Bluesky accounts */
+.did-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #1255ad;
+}
+
+.did-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+
+/* Shared UI elements */
+.textarea {
+  width: 100%;
+  min-height: 90px;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+.textarea-container {
+  display: flex;
+  flex: 1;
+  justify-content: space-between;
+}
+.textarea-label {
+  margin-top: 18px;
+  margin-bottom: 4px;
+}
+.input {
+  width: 100%;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  margin-top: 8px;
+}
+.primary-btn {
+  background: #007aff;
+  color: white;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  margin-top: 16px;
+  font-weight: bold;
+}
+.primary-btn:hover {
+  background: #0060d4;
+}
+.deploy-btn {
+  background: #007aff;
+  color: white;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 0px;
+  font-weight: bold;
+}
+.deploy-btn:hover {
+  background: #0060d4;
+}
+.char-count {
+  font-size: 12px;
+  color: #777;
+  align-content: center;
+  margin-top: 20px;
+}
+.subtext {
+  font-size: 12px;
+  color: #777;
+  align-content: center;
+  margin-top: 4px;
+}
+.single {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+.couple {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+.wedge {
+  width: 16px;
+}
+
+.item-list {
+  list-style: none;
+  padding: 6px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  background-color: #f3f6fb;
+  border: 1px solid #e2e2e2;
+  border-radius: 6px;
+}
+.list-item {
+  background-color: #ffffff;
+  padding: 8px;
+  border: 1px solid #e2e2e2;
+  border-radius: 6px;
+  display: flex;
+  justify-content: space-between;
+  margin: 6px;
+}
+.list-item.danger {
+  background: #ffe5e5;
+}
+.icon-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.subsection-title {
+  margin-top: 14px;
+  margin-bottom: 6px;
+  font-weight: bold;
+}
+
+.ranking-sliders {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.ranking-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ranking-label {
+  width: 100px;
+}
+
+.ranking-slider {
+  flex: 1;
+}
+
+.ranking-value {
+  width: 50px;
+  text-align: right;
+  font-family: monospace;
+}
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.loading-content {
+  background-color: #fff;
+  padding: 2rem;
+  border-radius: 8px;
+  text-align: center;
+  width: 90%;
+  max-width: 400px;
+}
+
+.loading-text {
+  margin-bottom: 1rem;
+}
+
+.progress-container {
+  height: 10px;
+  background-color: #eee;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: #4caf50;
+  transition: width 0.3s ease;
+}

@@ -1,0 +1,28 @@
+# Web & API
+fastapi
+uvicorn
+httpx
+asyncio
+pydantic
+
+# Google Cloud
+google-cloud-firestore
+
+# OpenAI API
+openai
+
+# Sentence Transformers (for local/dev use)
+sentence_transformers
+
+# ONNX Runtime (for production / offline embeddings)
+onnxruntime>=1.19.0
+
+# Transformers & tokenization (for ONNX tokenizer support)
+transformers>=4.40.0
+
+# Math & array processing
+numpy>=1.26.0
+scipy>=1.10.0
+
+# Optional: environment config (handy for local .env setup)
+python-dotenv>=1.0.1

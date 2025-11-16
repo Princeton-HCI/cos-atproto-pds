@@ -1,0 +1,42 @@
+# cloudbuild.yaml
+# Build, push, and deploy the custom-feed-api to Cloud Run
+
+steps:
+  # Step 1: Build the Docker image
+  - name: "gcr.io/cloud-builders/docker"
+    args:
+      [
+        "build",
+        "-t",
+        "gcr.io/$PROJECT_ID/custom-feed-api:$COMMIT_SHA",
+        "-f",
+        "custom-feed-api/Dockerfile",
+        "custom-feed-api",
+      ]
+
+  # Step 2: Push the image to Artifact Registry
+  - name: "gcr.io/cloud-builders/docker"
+    args: ["push", "gcr.io/$PROJECT_ID/custom-feed-api:$COMMIT_SHA"]
+
+  # Step 3: Deploy to Cloud Run
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: "bash"
+    args:
+      - "-c"
+      - |
+        echo "Deploying to Cloud Run..."
+        gcloud run deploy custom-feed-api \
+          --image gcr.io/$PROJECT_ID/custom-feed-api:$COMMIT_SHA \
+          --region us-central1 \
+          --platform managed \
+          --memory 2Gi \
+          --allow-unauthenticated \
+          --port 8080 \
+          --timeout 600 \
+          --set-env-vars API_KEY=$_API_KEY,OPENAI_API_KEY=$_OPENAI_API_KEY,CUSTOM_API_URL=$_CUSTOM_API_URL
+
+images:
+  - "gcr.io/$PROJECT_ID/custom-feed-api:$COMMIT_SHA"
+
+options:
+  logging: CLOUD_LOGGING_ONLY

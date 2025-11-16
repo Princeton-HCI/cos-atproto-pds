@@ -69,18 +69,18 @@ This project is automatically **built and deployed to Cloud Run** whenever code 
 1. Go to **Cloud Build → Triggers → Create Trigger**.
 2. Fill out the form with the following settings:
 
-| Field                           | Example / Notes                                            |
-| ------------------------------- | ---------------------------------------------------------- |
-| **Name**                        | `update-bluesky-feed-ruleset-generator` (must be unique)   |
-| **Region**                      | `global`                                                   |
-| **Description**                 | Trigger to build & deploy the custom feed API on push      |
-| **Event**                       | `Push to a branch`                                         |
-| **Repository service**          | `Cloud Build repositories → Developer Connect`             |
-| **Repository**                  | `Princeton-HCI/cos-atproto-pds` (connected via GitHub App) |
-| **Branch**                      | `^main$` (regular expression for the branch)               |
-| **Included files filter**       | optional, e.g. `bluesky-feed-ruleset-generator/**`         |
-| **Configuration Type**          | `Cloud Build configuration file (yaml/json)`               |
-| **Cloud Build config location** | `bluesky-feed-ruleset-generator/cloudbuild.yaml`           |
+| Field                           | Example / Notes                                                   |
+| ------------------------------- | ----------------------------------------------------------------- |
+| **Name**                        | `update-bluesky-feed-ruleset-generator` (must be unique)          |
+| **Region**                      | `global`                                                          |
+| **Description**                 | Trigger to update bluesky feed ruleset generator upon GitHub PRs. |
+| **Event**                       | `Push to a branch`                                                |
+| **Repository service**          | `Cloud Build repositories → Developer Connect`                    |
+| **Repository**                  | `Princeton-HCI/cos-atproto-pds` (connected via GitHub App)        |
+| **Branch**                      | `^main$` (regular expression for the branch)                      |
+| **Included files filter**       | optional, e.g. `bluesky-feed-ruleset-generator/**`                |
+| **Configuration Type**          | `Cloud Build configuration file (yaml/json)`                      |
+| **Cloud Build config location** | `bluesky-feed-ruleset-generator/cloudbuild.yaml`                  |
 
 > 💡 Built-in variables like `$PROJECT_ID`, `$REPO_NAME`, `$COMMIT_SHA`, and `$SHORT_SHA` are automatically available.
 

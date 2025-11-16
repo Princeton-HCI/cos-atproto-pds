@@ -1,5 +1,5 @@
 # cloudbuild.yaml
-# Build, push, and deploy the custom-feed-api to Cloud Run
+# Build, push, and deploy the bluesky-feed-ruleset-generator to Cloud Run
 
 steps:
   # Step 1: Build the Docker image
@@ -8,15 +8,16 @@ steps:
       [
         "build",
         "-t",
-        "gcr.io/$PROJECT_ID/custom-feed-api:$COMMIT_SHA",
+        "gcr.io/$PROJECT_ID/bluesky-feed-ruleset-generator:$COMMIT_SHA",
         "-f",
-        "custom-feed-api/Dockerfile",
-        "custom-feed-api",
+        "bluesky-feed-ruleset-generator/Dockerfile",
+        "bluesky-feed-ruleset-generator",
       ]
 
   # Step 2: Push the image to Artifact Registry
   - name: "gcr.io/cloud-builders/docker"
-    args: ["push", "gcr.io/$PROJECT_ID/custom-feed-api:$COMMIT_SHA"]
+    args:
+      ["push", "gcr.io/$PROJECT_ID/bluesky-feed-ruleset-generator:$COMMIT_SHA"]
 
   # Step 3: Deploy to Cloud Run
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
@@ -25,8 +26,8 @@ steps:
       - "-c"
       - |
         echo "Deploying to Cloud Run..."
-        gcloud run deploy custom-feed-api \
-          --image gcr.io/$PROJECT_ID/custom-feed-api:$COMMIT_SHA \
+        gcloud run deploy bluesky-feed-ruleset-generator \
+          --image gcr.io/$PROJECT_ID/bluesky-feed-ruleset-generator:$COMMIT_SHA \
           --region us-central1 \
           --platform managed \
           --memory 2Gi \
@@ -36,7 +37,7 @@ steps:
           --set-env-vars API_KEY=$_API_KEY,OPENAI_API_KEY=$_OPENAI_API_KEY,CUSTOM_API_URL=$_CUSTOM_API_URL
 
 images:
-  - "gcr.io/$PROJECT_ID/custom-feed-api:$COMMIT_SHA"
+  - "gcr.io/$PROJECT_ID/bluesky-feed-ruleset-generator:$COMMIT_SHA"
 
 options:
   logging: CLOUD_LOGGING_ONLY

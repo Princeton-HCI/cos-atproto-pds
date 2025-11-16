@@ -142,6 +142,8 @@ sudo pip3 install --upgrade --force-reinstall --ignore-installed \
     --break-system-packages
 ```
 
+_NOTE: Pasting the entire command block above and running it in the terminal takes approximately 10-15 minutes to complete, so feel free to have things run on their own until completeion._
+
 ---
 
 ## 8. PDS Embeddings-Powered Search API + Python Scripts

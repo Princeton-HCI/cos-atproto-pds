@@ -209,8 +209,8 @@ async def handle_firehose():
                                 created_at = dt.replace(tzinfo=None)
 
                             # Generate post embedding
-                            post_embedding = encode_onnx(combined_text).tolist()
-                            post_embedding_str = f"[{','.join(map(str, post_embedding[0]))}]"
+                            post_embedding = encode_onnx(combined_text).tolist()[0][0]
+                            post_embedding_str = f"[{','.join(map(str, post_embedding))}]"
 
                             # Insert post
                             await db.execute(
@@ -234,15 +234,15 @@ async def handle_firehose():
                                 updated_at = created_at
 
                                 # Embeddings
-                                display_name_emb = encode_onnx(display_name).tolist()
-                                handle_emb = encode_onnx(handle).tolist()
-                                desc_emb = encode_onnx(description).tolist()
-                                posts_emb = encode_onnx(posts_text).tolist()
+                                display_name_emb = encode_onnx(display_name).tolist()[0][0]
+                                handle_emb = encode_onnx(handle).tolist()[0][0]
+                                desc_emb = encode_onnx(description).tolist()[0][0]
+                                posts_emb = encode_onnx(posts_text).tolist()[0][0]
 
-                                display_name_emb_str = f"[{','.join(map(str, display_name_emb[0]))}]"
-                                handle_emb_str = f"[{','.join(map(str, handle_emb[0]))}]"
-                                desc_emb_str = f"[{','.join(map(str, desc_emb[0]))}]"
-                                posts_emb_str = f"[{','.join(map(str, posts_emb[0]))}]"
+                                display_name_emb_str = f"[{','.join(map(str, display_name_emb))}]"
+                                handle_emb_str = f"[{','.join(map(str, handle_emb))}]"
+                                desc_emb_str = f"[{','.join(map(str, desc_emb))}]"
+                                posts_emb_str = f"[{','.join(map(str, posts_emb))}]"
 
                                 await db.execute(
                                     UPSERT_AUTHOR_SQL,

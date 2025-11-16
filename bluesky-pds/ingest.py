@@ -254,14 +254,15 @@ async def handle_firehose():
                             else:
                                 # Update existing author’s recent posts
                                 posts_text = combined_text[:500]
-                                posts_emb = f"[{','.join(map(str, model.encode(posts_text).tolist()))}]"
+                                posts_emb = encode_onnx(posts_text).tolist()[0][0]
+                                posts_emb_str = f"[{','.join(map(str, posts_emb))}]"
                                 await db.execute("""
                                     UPDATE authors
                                     SET posts_text = LEFT($1 || posts_text, 500),
                                         posts_embedding = $2,
                                         updated_at = GREATEST($3, updated_at)
                                     WHERE id = $4
-                                """, posts_text, posts_emb, created_at, repo)
+                                """, posts_text, posts_emb_str, created_at, repo)
                                 logger.info(f"Updated author {repo}")
 
                         except Exception as e:

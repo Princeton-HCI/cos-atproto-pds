@@ -220,13 +220,7 @@ Look for the container running the `caddy:2` image.
 
 ### Locate the Caddyfile:
 
-Caddy config is mounted, often at:
-
-```bash
-sudo /pds/caddy/etc/caddy/Caddyfile
-```
-
-Edit it:
+Caddy configs are usually mounted at `/pds/caddy/etc/caddy/Caddyfile` we can edit it to our liking by doing:
 
 ```bash
 sudo nano /pds/caddy/etc/caddy/Caddyfile

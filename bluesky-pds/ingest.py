@@ -165,11 +165,12 @@ async def fetch_profile(session, did):
 
 
 # DB worker
-async def db_worker(queue, db):
+async def db_worker(queue, db_pool):
     while True:
+        query, params = await queue.get()
         try:
-            query, params = await queue.get()
-            await db.execute(query, *params)
+            async with db_pool.acquire() as conn:
+                await conn.execute(query, *params)
         except Exception as e:
             logger.error(f"DB worker error: {e}", exc_info=True)
         finally:
@@ -238,7 +239,7 @@ async def handle_firehose():
     )
 
     # Ensure tables exist
-    await init_db(db)
+    await init_db()
 
     db_queue = asyncio.Queue()
     asyncio.create_task(db_worker(db_queue, db))

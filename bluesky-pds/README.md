@@ -127,17 +127,19 @@ Once done you can return here and continue onwards.
 sudo apt update
 sudo apt install -y python3-pip
 
-sudo pip3 install --break-system-packages \
+sudo pip3 install --upgrade --force-reinstall --ignore-installed \
     websockets \
     aiohttp \
     asyncio \
     asyncpg \
     numpy \
+    typing-extensions \
     onnxruntime \
     python-dotenv \
     fastapi \
     uvicorn \
-    transformers
+    transformers \
+    --break-system-packages
 ```
 
 ---

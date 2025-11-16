@@ -164,64 +164,9 @@ async def fetch_profile(session, did):
         return None
 
 
-# DB worker
-async def db_worker(queue, db_pool):
-    while True:
-        query, params = await queue.get()
-        try:
-            async with db_pool.acquire() as conn:
-                await conn.execute(query, *params)
-        except Exception as e:
-            logger.error(f"DB worker error: {e}", exc_info=True)
-        finally:
-            queue.task_done()
-
-# Post processing
-async def process_post(evt, db_queue, http_session):
-    try:
-        commit = evt.get("commit", {})
-        repo = evt.get("did")
-        rkey = commit.get("rkey")
-        cid = commit.get("cid")
-        record = commit.get("record", {})
-        record_json = json.dumps(record)
-        combined_text = extract_text(record)
-        created_at_str = record.get("createdAt")
-        created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00")).replace(tzinfo=None) if created_at_str else None
-
-        # Compute embeddings
-        post_embedding = encode_onnx(combined_text).tolist()[0]
-
-        # Queue post insert
-        await db_queue.put((INSERT_POST_SQL, [repo, rkey, cid, combined_text, created_at, post_embedding, record_json]))
-
-        # Handle author upsert
-        profile = await fetch_profile(http_session, repo) or {}
-        handle = profile.get("handle", repo)
-        display_name = profile.get("display_name", "")
-        description = profile.get("description", "")
-        followers_count = profile.get("followers_count", 0)
-        follows_count = profile.get("follows_count", 0)
-        posts_count = profile.get("posts_count", 0)
-        posts_text = combined_text[:500]
-        display_name_emb = encode_onnx(display_name).tolist()[0]
-        handle_emb = encode_onnx(handle).tolist()[0]
-        desc_emb = encode_onnx(description).tolist()[0]
-        posts_emb = encode_onnx(posts_text).tolist()[0]
-
-        await db_queue.put((UPSERT_AUTHOR_SQL, [
-            repo, handle, display_name, description, posts_text,
-            display_name_emb, handle_emb, desc_emb, posts_emb,
-            followers_count, follows_count, posts_count, created_at
-        ]))
-
-        logger.info(f"Queued post and author updates for {repo}")
-
-    except Exception as e:
-        logger.error(f"Error processing post: {e}", exc_info=True)
-
-# Firehose listener
+# Firehose processing loop
 async def handle_firehose():
+    """Listen to firehose and store posts and authors."""
     db = await asyncpg.create_pool(
         host=DB_HOST,
         port=DB_PORT,
@@ -238,13 +183,9 @@ async def handle_firehose():
         )
     )
 
-    # Ensure tables exist
     await init_db()
 
-    db_queue = asyncio.Queue()
-    asyncio.create_task(db_worker(db_queue, db))
-
-    async with aiohttp.ClientSession() as http_session:
+    async with aiohttp.ClientSession() as session:
         while True:
             try:
                 async with websockets.connect(FIREHOSE_URL, ping_interval=20, ping_timeout=10) as ws:
@@ -256,10 +197,78 @@ async def handle_firehose():
                             commit = evt.get("commit", {})
                             collection = commit.get("collection")
                             operation = commit.get("operation")
-                            if collection == "app.bsky.feed.post" and operation == "create":
-                                asyncio.create_task(process_post(evt, db_queue, http_session))
+
+                            if collection != "app.bsky.feed.post" or operation != "create":
+                                continue
+
+                            repo = evt.get("did")
+                            rkey = commit.get("rkey")
+                            cid = commit.get("cid")
+                            record = commit.get("record", {})
+                            record_json = json.dumps(record)
+
+                            # Combine text + alt texts
+                            combined_text = extract_text(record)
+
+                            # Parse creation time
+                            created_at = None
+                            created_at_str = record.get("createdAt")
+                            if created_at_str:
+                                dt = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
+                                created_at = dt.replace(tzinfo=None)
+
+                            # Generate post embedding
+                            post_embedding = encode_onnx(combined_text).tolist()[0][0]
+
+                            # Insert post
+                            await db.execute(
+                                INSERT_POST_SQL,
+                                repo, rkey, cid, combined_text, created_at, post_embedding, record_json
+                            )
+                            logger.info(f"Inserted post from {repo}")
+
+                            # Check if author exists
+                            existing_author = await db.fetchrow("SELECT id FROM authors WHERE id = $1", repo)
+                            if not existing_author:
+                                profile = await fetch_profile(session, repo) or {}
+                                handle = profile.get("handle", repo)
+                                display_name = profile.get("display_name", "")
+                                description = profile.get("description", "")
+                                followers_count = profile.get("followers_count", 0)
+                                follows_count = profile.get("follows_count", 0)
+                                posts_count = profile.get("posts_count", 0)
+
+                                posts_text = combined_text[:500]
+                                updated_at = created_at
+
+                                # Embeddings
+                                display_name_emb = encode_onnx(display_name).tolist()[0][0]
+                                handle_emb = encode_onnx(handle).tolist()[0][0]
+                                desc_emb = encode_onnx(description).tolist()[0][0]
+                                posts_emb = encode_onnx(posts_text).tolist()[0][0]
+
+                                await db.execute(
+                                    UPSERT_AUTHOR_SQL,
+                                    repo, handle, display_name, description, posts_text,
+                                    display_name_emb, handle_emb, desc_emb, posts_emb,
+                                    followers_count, follows_count, posts_count, updated_at
+                                )
+                                logger.info(f"Inserted new author {repo} ({handle}) with {followers_count} followers")
+                            else:
+                                # Update existing author’s recent posts
+                                posts_text = combined_text[:500]
+                                posts_emb = encode_onnx(posts_text).tolist()[0][0]
+                                await db.execute("""
+                                    UPDATE authors
+                                    SET posts_text = LEFT($1 || posts_text, 500),
+                                        posts_embedding = $2,
+                                        updated_at = GREATEST($3, updated_at)
+                                    WHERE id = $4
+                                """, posts_text, posts_emb, created_at, repo)
+                                logger.info(f"Updated author {repo}")
+
                         except Exception as e:
-                            logger.error(f"Error reading message: {e}", exc_info=True)
+                            logger.error(f"Error processing message: {e}", exc_info=True)
 
             except websockets.ConnectionClosedError as e:
                 logger.warning(f"WebSocket closed: {e}. Reconnecting in 5s...")
@@ -270,7 +279,6 @@ async def handle_firehose():
 
 # Entrypoint
 async def main():
-    # init DB here if needed
     await handle_firehose()
 
 if __name__ == "__main__":

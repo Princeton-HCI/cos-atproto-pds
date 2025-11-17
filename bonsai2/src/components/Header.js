@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getProfile } from "../utils/bluesky";
+import { fetchUserFeeds, getProfile } from "../utils/bluesky";
 import { collection, doc, getDoc } from "firebase/firestore";
 import { db } from "../utils/firebase";
 
@@ -7,7 +7,7 @@ const Header = ({
   setCredentials,
   handle,
   setFeedBlueprint,
-  setFeedMetada,
+  setFeedMetadata,
 }) => {
   const [profile, setProfile] = useState(null);
   const [feeds, setFeeds] = useState([]);
@@ -27,11 +27,8 @@ const Header = ({
   const handleManageOtherFeeds = async () => {
     // Fetch feeds from Bluesky
     try {
-      const res = await fetch(
-        `https://public.api.bsky.app/xrpc/app.bsky.feed.getActorFeeds?actor=${profile?.did}`
-      );
-      const data = await res.json();
-      setFeeds(data.feeds || []);
+      const fetchedFeeds = await fetchUserFeeds(profile?.did);
+      setFeeds(fetchedFeeds || []);
       setShowFeedsOverlay(true);
     } catch (err) {
       console.error("Failed to fetch feeds:", err);
@@ -39,23 +36,24 @@ const Header = ({
   };
 
   const handleSelectFeed = async (feed) => {
-    // Fetch blueprint from Firestore using feed.cid
+    // Fetch blueprint from Firestore using id derived from feed.uri
+    const feedId = `${feed.uri.split("/")[2]}${feed.uri.split("/")[4]}`;
     try {
-      const docRef = doc(db, "bluesky-feed-rulesets", feed.cid);
+      const docRef = doc(db, "bluesky-feed-rulesets", feedId);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         setFeedBlueprint(docSnap.data());
       } else {
-        console.warn("No blueprint found for feed", feed.cid);
+        console.warn("No blueprint found for feed", feedId);
         setFeedBlueprint(null);
       }
 
       // Update feed metadata
-      setFeedMetada({
+      setFeedMetadata({
         record_name: feed.uri.split("/").pop(),
         display_name: feed.displayName,
         description: feed.description,
-        id: feed.cid,
+        id: feedId,
       });
 
       setShowFeedsOverlay(false); // close overlay
@@ -77,15 +75,15 @@ const Header = ({
           className="did-avatar"
         />
         <span>{handle}</span>
-        <button className="manage-btn" onClick={handleManageOtherFeeds}>
+        <button className="manage-btn" onClick={() => handleManageOtherFeeds()}>
           Manage feeds
         </button>
-        <button className="signout-btn" onClick={handleSignOut}>
+        <button className="signout-btn" onClick={() => handleSignOut()}>
           Sign out
         </button>
       </div>
 
-      {showFeedsOverlay && (
+      {showFeedsOverlay && !!feeds && (
         <div className="loading-overlay">
           <div className="loading-content" style={{ position: "relative" }}>
             <button
@@ -103,7 +101,7 @@ const Header = ({
             <div className="item-list">
               {feeds.map((feed) => (
                 <div
-                  key={feed.cid}
+                  key={feed.uri}
                   onClick={() => handleSelectFeed(feed)}
                   className="wrapped-list-item"
                 >

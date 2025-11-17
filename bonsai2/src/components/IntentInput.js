@@ -20,7 +20,7 @@ const IntentInput = ({ setFeedBlueprint, setFeedMetadata }) => {
       }, 1500);
 
       const res = await axios.post(
-        "https://bluesky-feed-ruleset-generator-653645331318.us-central1.run.app/api/generate-feed-ruleset",
+        process.env.REACT_APP_BLUESKY_FEED_RULESET_GENERATOR_API,
         { query },
         {
           headers: {

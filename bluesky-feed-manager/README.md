@@ -263,13 +263,13 @@ feed.example.com {
 
 This tells Caddy to:
 
-- Serve your API at `https://feed.example.com/api/...`
+- Serve your API at `https://feed.example.com/...`
 - Automatically handle HTTPS
 - Forward requests to your backend on port 8000
 
 **Explanation:**
 
-- `handle_path /api/*` → automatically **strips `/api`** before sending it upstream, so your feed generator sees `/xrpc/...` as it expects.
+- `handle_path /*` → automatically **strips `/api`** before sending it upstream, so your feed generator sees `/xrpc/...` as it expects.
 - `reverse_proxy http://127.0.0.1:8000` → points to your existing service.
 - `encode gzip` → optional, compresses responses.
 
@@ -324,7 +324,7 @@ This ensures Caddy is running and serving your API correctly. Caddy will automat
 Now you should be able to access:
 
 ```
-https://feed.example.com/api/xrpc/app.bsky.feed.describeFeedGenerator
+https://feed.example.com/xrpc/app.bsky.feed.describeFeedGenerator
 ```
 
 Caddy will:
@@ -336,7 +336,7 @@ Caddy will:
 Test with `curl`:
 
 ```bash
-curl -k http://feed.example.com/api/xrpc/app.bsky.feed.describeFeedGenerator
+curl -k http://feed.example.com/xrpc/app.bsky.feed.describeFeedGenerator
 ```
 
 Expected JSON:
@@ -438,7 +438,7 @@ Here is an example of the JSON body you would POST to this service:
 ### Example cURL Command (with API key)
 
 ```bash
-curl -X POST https://feed.example.com/api/manage-feed \
+curl -X POST https://feed.example.com/manage-feed \
   -H "Content-Type: application/json" \
   -H "x-api-key: <your api key>" \
   -d '{
@@ -498,7 +498,7 @@ If successful, the server returns the feed URI:
 }
 ```
 
-You should then be able to see an identifier for the new feed if you go to that same link from before in your browser: `https://feed.example.com/api/xrpc/app.bsky.feed.describeFeedGenerator`. If everything has been implemented properly, you should see a response like this now:
+You should then be able to see an identifier for the new feed if you go to that same link from before in your browser: `https://feed.example.com/xrpc/app.bsky.feed.describeFeedGenerator`. If everything has been implemented properly, you should see a response like this now:
 
 ```json
 {
@@ -514,7 +514,7 @@ You should then be able to see an identifier for the new feed if you go to that 
 }
 ```
 
-You can also go to a link like this in your browser: `https://feed.example.com/api/xrpc/app.bsky.feed.getFeedSkeleton?feed=at://did:plc:a1b2c3d4e5f6g7h8i9j0klmn/app.bsky.feed.generator/adorable-pets-feed`. This will allow you to actually see the identifiers for handful of posts that have been dynamically collected for your new custom feed.
+You can also go to a link like this in your browser: `https://feed.example.com/xrpc/app.bsky.feed.getFeedSkeleton?feed=at://did:plc:a1b2c3d4e5f6g7h8i9j0klmn/app.bsky.feed.generator/adorable-pets-feed`. This will allow you to actually see the identifiers for handful of posts that have been dynamically collected for your new custom feed.
 
 ```json
 {

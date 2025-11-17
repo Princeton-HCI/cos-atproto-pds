@@ -1,6 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
-import { getAgent } from "../utils/bluesky";
+import { doc, setDoc } from "firebase/firestore";
+import { db } from "../utils/firebase";
 import IntentInput from "./IntentInput";
 import SourceSelector from "./SourceSelector";
 import RankingSelector from "./RankingSelector";
@@ -15,6 +16,7 @@ const FeedBuilderUI = ({ credentials, setCredentials }) => {
   const [error, setError] = useState("");
   const [deployedFeedUri, setDeployedFeedUri] = useState("");
   const [deployedFeedUrl, setDeployedFeedUrl] = useState("");
+  const [deployedFeedId, setDeployedFeedId] = useState("");
   const [deploySuccess, setDeploySuccess] = useState(false);
 
   const handleDeploy = async () => {
@@ -33,7 +35,10 @@ const FeedBuilderUI = ({ credentials, setCredentials }) => {
       const postBody = {
         handle: credentials.handle,
         password: credentials.password,
-        hostname: "feeds.princetonhci.social",
+        hostname:
+          process.env.REACT_APP_BLUESKY_FEED_MANAGER_API.split(
+            "https://"
+          )[1].split("/api")[0],
         record_name: feedMetadata.record_name,
         display_name: feedMetadata.display_name,
         description: feedMetadata.description,
@@ -41,7 +46,7 @@ const FeedBuilderUI = ({ credentials, setCredentials }) => {
       };
 
       const res = await axios.post(
-        "https://feeds.princetonhci.social/api/manage-feed",
+        process.env.REACT_APP_BLUESKY_FEED_MANAGER_API,
         postBody,
         {
           headers: {
@@ -58,21 +63,19 @@ const FeedBuilderUI = ({ credentials, setCredentials }) => {
       const feedUrl = `https://bsky.app/profile/${feedUri.split("/")[2]}/feed/${
         feedUri.split("/")[4]
       }`;
-      console.log(feedUri);
-      console.log(feedUrl);
-
-      const agent = await getAgent();
-      const { data: feedInfo } = await agent.app.bsky.feed.getFeedGenerator({
-        feed: feedUri,
-      });
-      if (!feedInfo.view.viewer?.like) {
-        await agent.like(feedUri, feedInfo.view.cid);
-      }
+      const feedId = `${feedUri.split("/")[2]}${feedUri.split("/")[4]}`;
 
       setDeployedFeedUri(feedUri);
       setDeployedFeedUrl(feedUrl);
+      setDeployedFeedId(feedId);
 
       setDeploySuccess(true);
+
+      await setDoc(
+        doc(db, process.env.REACT_APP_FIREBASE_FIRESTORE_COLLECTION, feedId),
+        feedBlueprint
+      );
+      console.log("Feed blueprint saved to Firestore with id:", feedId);
     } catch (err) {
       console.error("Failed to deploy feed:", err);
       setError("Failed to deploy feed. Please try again.");
@@ -182,8 +185,8 @@ const FeedBuilderUI = ({ credentials, setCredentials }) => {
 
                   <div className="subtext">
                     <small>
-                      <code>ID: {feedMetadata.id}</code> (auto-generated,
-                      read-only)
+                      <code>ID: {feedMetadata.id || deployedFeedId}</code>{" "}
+                      (auto-generated, read-only)
                     </small>
                   </div>
                 </div>

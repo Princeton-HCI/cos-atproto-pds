@@ -1,13 +1,19 @@
-let agent;
-
-export const getAgent = async () => {
-  if (!agent) {
-    // Dynamically import @atproto/api
-    const module = await import("@atproto/api");
-    const AtpAgent = module.AtpAgent; // <-- named export
-    agent = new AtpAgent({ service: "https://bsky.social" });
+export const fetchUserFeeds = async (did) => {
+  try {
+    const res = await fetch(
+      `https://public.api.bsky.app/xrpc/app.bsky.feed.getActorFeeds?actor=${did}`
+    );
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+    const data = await res.json();
+    return data.feeds || [];
+  } catch (err) {
+    console.error("Failed to fetch feeds:", err);
+    return [];
   }
-  return agent;
+};
+
+export const getFeedByUri = (feeds, uri) => {
+  return feeds.find((feed) => feed.uri === uri) || null;
 };
 
 export const extractHandleOrDid = (input) => {

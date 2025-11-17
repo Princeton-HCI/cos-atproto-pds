@@ -31,23 +31,24 @@ This kind of configuration is sufficient for running a Feed Generator service in
 Once created, your VM will receive:
 
 - An **internal IP** (e.g., `10.128.0.3`)
-- An **external IPv4** (e.g., `203.0.113.45`)
+- An **external IPv4** — **this one is auto-assigned and _ephemeral_** (e.g., `203.0.113.45`)
 
-You will use the external IP when configuring DNS.
+The ephemeral external IP **can change at any time** (e.g., when the VM stops/starts), so it should **not** be used for DNS.
+
+You will instead create a **static external IP** and assign it to the VM so your feed’s hostname always points to a stable address.
 
 ---
 
-### 1.2 Reserve or Assign an External IP
+### 1.2 Reserve or Assign a Static External IP
 
-If possible, reserve a **static** external IP so your feed hostname does not change.
+To ensure your VM keeps the same public address, reserve a **static external IP** and attach it to the instance.
+This static IP will replace the ephemeral one.
 
 Example (placeholder):
 
 ```
-External IP (static): 203.0.113.45
+External IP (static): 35.67.414.20
 ```
-
-Attach this IP to the VM's primary network interface.
 
 ---
 

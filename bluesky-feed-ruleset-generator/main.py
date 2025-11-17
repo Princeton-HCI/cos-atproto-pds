@@ -2,7 +2,6 @@ from fastapi import FastAPI, Request, HTTPException
 from pydantic import BaseModel
 import os
 
-from google.cloud import firestore
 from generate_feed_ruleset import generate_feed_ruleset
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -35,9 +34,6 @@ app.add_middleware(
 
 API_KEY = os.getenv("API_KEY")
 
-db = firestore.Client()
-rulesets_ref = db.collection("custom_feed_rulesets")
-
 class IntentRequest(BaseModel):
     query: str
 
@@ -57,10 +53,7 @@ async def generate_ruleset(request: Request, body: IntentRequest):
 
     try:
         ruleset = await generate_feed_ruleset(body.query)
-        doc_ref = rulesets_ref.document()
-        doc_ref.set(ruleset)
-
-        return {"status": "success", "ruleset_id": doc_ref.id, "ruleset": ruleset}
+        return {"status": "success", "ruleset": ruleset}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

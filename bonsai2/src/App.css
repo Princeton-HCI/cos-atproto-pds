@@ -150,6 +150,21 @@
 .deploy-btn:hover {
   background: #0060d4;
 }
+
+.manage-btn {
+  background: #007aff;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+.manage-btn:hover {
+  background: #0060d4;
+}
+
 .signout-btn {
   background: #444444;
   color: white;
@@ -289,4 +304,30 @@
   height: 100%;
   background-color: #4caf50;
   transition: width 0.3s ease;
+}
+
+.close-icon {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #666;
+}
+
+.wrapped-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #1255ad;
+  margin: 6px;
+  background-color: rgba(0, 0, 0, 0.09);
+  padding-top: 2px;
+  padding-bottom: 2px;
+  padding-left: 8px;
+  padding-right: 8px;
+  border-radius: 6px;
+  cursor: pointer;
 }

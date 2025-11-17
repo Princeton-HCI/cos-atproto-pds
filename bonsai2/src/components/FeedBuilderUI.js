@@ -37,9 +37,7 @@ const FeedBuilderUI = ({ credentials, setCredentials }) => {
         record_name: feedMetadata.record_name,
         display_name: feedMetadata.display_name,
         description: feedMetadata.description,
-        ruleset_id: feedMetadata.id,
         blueprint: feedBlueprint,
-        timestamp: Date.now(),
       };
 
       const res = await axios.post(
@@ -86,7 +84,12 @@ const FeedBuilderUI = ({ credentials, setCredentials }) => {
   return (
     <div className="app-container">
       <div className="ui-col">
-        <Header setCredentials={setCredentials} handle={credentials?.handle} />
+        <Header
+          setCredentials={setCredentials}
+          handle={credentials?.handle}
+          setFeedBlueprint={setFeedBlueprint}
+          setFeedMetadata={setFeedMetadata}
+        />
         <IntentInput
           setFeedBlueprint={setFeedBlueprint}
           setFeedMetadata={setFeedMetadata}
@@ -149,16 +152,7 @@ const FeedBuilderUI = ({ credentials, setCredentials }) => {
                 >
                   <button
                     onClick={() => setDeploySuccess(false)}
-                    style={{
-                      position: "absolute",
-                      top: "8px",
-                      right: "12px",
-                      background: "transparent",
-                      border: "none",
-                      fontSize: "18px",
-                      cursor: "pointer",
-                      color: "#666",
-                    }}
+                    className="close-icon"
                     aria-label="Close"
                   >
                     ✕

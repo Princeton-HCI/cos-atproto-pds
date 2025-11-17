@@ -1,14 +1,21 @@
 import { useEffect, useState } from "react";
 import { getProfile } from "../utils/bluesky";
+import { collection, doc, getDoc } from "firebase/firestore";
+import { db } from "../utils/firebase";
 
-const Header = ({ setCredentials, handle }) => {
-  const [avatar, setAvatar] = useState(null);
+const Header = ({
+  setCredentials,
+  handle,
+  setFeedBlueprint,
+  setFeedMetada,
+}) => {
+  const [profile, setProfile] = useState(null);
+  const [feeds, setFeeds] = useState([]);
+  const [showFeedsOverlay, setShowFeedsOverlay] = useState(false);
 
   useEffect(() => {
     if (handle) {
-      getProfile(handle).then((profile) => {
-        setAvatar(profile?.avatar || null);
-      });
+      getProfile(handle).then((profile) => setProfile(profile));
     }
   }, [handle]);
 
@@ -17,25 +24,96 @@ const Header = ({ setCredentials, handle }) => {
     setCredentials(null);
   };
 
+  const handleManageOtherFeeds = async () => {
+    // Fetch feeds from Bluesky
+    try {
+      const res = await fetch(
+        `https://public.api.bsky.app/xrpc/app.bsky.feed.getActorFeeds?actor=${profile?.did}`
+      );
+      const data = await res.json();
+      setFeeds(data.feeds || []);
+      setShowFeedsOverlay(true);
+    } catch (err) {
+      console.error("Failed to fetch feeds:", err);
+    }
+  };
+
+  const handleSelectFeed = async (feed) => {
+    // Fetch blueprint from Firestore using feed.cid
+    try {
+      const docRef = doc(db, "bluesky-feed-rulesets", feed.cid);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setFeedBlueprint(docSnap.data());
+      } else {
+        console.warn("No blueprint found for feed", feed.cid);
+        setFeedBlueprint(null);
+      }
+
+      // Update feed metadata
+      setFeedMetada({
+        record_name: feed.uri.split("/").pop(),
+        display_name: feed.displayName,
+        description: feed.description,
+        id: feed.cid,
+      });
+
+      setShowFeedsOverlay(false); // close overlay
+    } catch (err) {
+      console.error("Failed to fetch blueprint:", err);
+    }
+  };
+
   return (
     <div className="textarea-container">
       <h1>🌳 Bonsai2</h1>
       <div className="did-chip">
-        {avatar && (
-          <img
-            src={
-              avatar ||
-              "https://upload.wikimedia.org/wikipedia/commons/0/03/Twitter_default_profile_400x400.png"
-            }
-            alt="avatar"
-            className="did-avatar"
-          />
-        )}
+        <img
+          src={
+            profile?.avatar ||
+            "https://upload.wikimedia.org/wikipedia/commons/0/03/Twitter_default_profile_400x400.png"
+          }
+          alt="avatar"
+          className="did-avatar"
+        />
         <span>{handle}</span>
-        <button className="signout-btn" onClick={() => handleSignOut()}>
+        <button className="manage-btn" onClick={handleManageOtherFeeds}>
+          Manage feeds
+        </button>
+        <button className="signout-btn" onClick={handleSignOut}>
           Sign out
         </button>
       </div>
+
+      {showFeedsOverlay && (
+        <div className="loading-overlay">
+          <div className="loading-content" style={{ position: "relative" }}>
+            <button
+              onClick={() => setShowFeedsOverlay(false)}
+              className="close-icon"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+
+            <p className="loading-text">
+              🦋 Press a Bonsai2 managed feed to manage it
+            </p>
+
+            <div className="item-list">
+              {feeds.map((feed) => (
+                <div
+                  key={feed.cid}
+                  onClick={() => handleSelectFeed(feed)}
+                  className="wrapped-list-item"
+                >
+                  {feed.displayName}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

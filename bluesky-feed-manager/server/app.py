@@ -109,7 +109,7 @@ async def create_feed_endpoint(request: Request, data: dict):
         # Create feed via ATProto API
         # These fields are the only ones recognized as parameters for create_feed()
         # You can extend as needed but must update in both places
-        allowed_keys = ["handle","password","hostname","record_name","display_name","description","blueprint","ruleset_id","timestamp"]
+        allowed_keys = ["handle","password","hostname","record_name","display_name","description","blueprint"]
         feed_data = {k: v for k, v in data.items() if k in allowed_keys}
         uri = create_feed(**feed_data)
 

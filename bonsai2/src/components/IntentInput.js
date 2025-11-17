@@ -35,7 +35,7 @@ const IntentInput = ({ setFeedBlueprint, setFeedMetadata }) => {
 
       if (res.data) {
         setFeedBlueprint(res.data.ruleset.blueprint);
-        const feedMetadata = { ...res.data.ruleset, id: res.data.ruleset_id };
+        const feedMetadata = { ...res.data.ruleset };
         delete feedMetadata.blueprint;
         setFeedMetadata(feedMetadata);
       }

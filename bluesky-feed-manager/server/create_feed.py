@@ -6,7 +6,7 @@ import os
 
 def create_feed(handle, password, hostname, record_name, display_name="", description="",
                 avatar_path=os.path.join(os.path.dirname(__file__), "avatar.png"),
-                blueprint=None, ruleset_id="", timestamp=0):
+                blueprint=None):
     client = Client()
     client.login(handle, password)
 

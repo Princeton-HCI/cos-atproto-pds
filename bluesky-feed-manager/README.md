@@ -60,12 +60,12 @@ Example DNS records (safe placeholder values):
 
 | Type | Name    | Data (IP)        | Meaning                              |
 | ---- | ------- | ---------------- | ------------------------------------ |
-| A    | `feeds` | **203.0.113.45** | `feed.example.com` → feed manager VM |
+| A    | `feeds` | **35.67.414.20** | `feed.example.com` → feed manager VM |
 
 For example:
 
 ```
-feed.example.com → 203.0.113.45
+feed.example.com → 35.67.414.20
 ```
 
 This domain will later be used as your `HOSTNAME` and for your SSL certificate.

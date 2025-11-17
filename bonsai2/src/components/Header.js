@@ -37,7 +37,7 @@ const Header = ({
 
   const handleSelectFeed = async (feed) => {
     // Fetch blueprint from Firestore using id derived from feed.uri
-    const feedId = `${feed.uri.split("/")[2]}${feed.uri.split("/")[4]}`;
+    const feedId = `${feed.uri.split("/")[2]}~${feed.uri.split("/")[4]}`;
     try {
       const docRef = doc(db, "bluesky-feed-rulesets", feedId);
       const docSnap = await getDoc(docRef);

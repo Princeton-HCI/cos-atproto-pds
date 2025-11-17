@@ -63,7 +63,7 @@ const FeedBuilderUI = ({ credentials, setCredentials }) => {
       const feedUrl = `https://bsky.app/profile/${feedUri.split("/")[2]}/feed/${
         feedUri.split("/")[4]
       }`;
-      const feedId = `${feedUri.split("/")[2]}${feedUri.split("/")[4]}`;
+      const feedId = `${feedUri.split("/")[2]}~${feedUri.split("/")[4]}`;
 
       setDeployedFeedUri(feedUri);
       setDeployedFeedUrl(feedUrl);

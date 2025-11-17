@@ -16,6 +16,12 @@ export const getFeedByUri = (feeds, uri) => {
   return feeds.find((feed) => feed.uri === uri) || null;
 };
 
+export const idToFeedUrl = (feedId) => {
+  const [did, rkey] = feedId.split("~");
+  if (!did || !rkey) return null;
+  return `https://bsky.app/profile/${did}/feed/${rkey}`;
+};
+
 export const extractHandleOrDid = (input) => {
   input = input.trim();
 

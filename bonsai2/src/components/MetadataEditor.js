@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import Panel from "./Panel";
+import { idToFeedUrl } from "../utils/bluesky";
 
 const MetadataEditor = ({ feedMetadata, setFeedMetadata }) => {
   const [localData, setLocalData] = useState({
@@ -23,6 +24,27 @@ const MetadataEditor = ({ feedMetadata, setFeedMetadata }) => {
 
   return (
     <Panel title="Feed Metadata">
+      {localData.prefilled && (
+        <small className="success-message">
+          <i>
+            Link:{"  "}
+            <a
+              href={idToFeedUrl(localData.id)}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                width: "75%",
+                display: "inline-block",
+                overflowWrap: "anywhere",
+                color: "#1255ad",
+                marginBottom: "10px",
+              }}
+            >
+              {idToFeedUrl(localData.id)}
+            </a>
+          </i>
+        </small>
+      )}
       <div className="couple">
         <div className="single">
           <div className="textarea-label">Display Name</div>

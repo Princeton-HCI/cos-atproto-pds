@@ -216,6 +216,7 @@ We can use Caddy to provide automatic HTTPS, handle incoming requests at /api, a
 Caddy can be installed via the official repository. On your VM:
 
 ```bash
+cd ~
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
 

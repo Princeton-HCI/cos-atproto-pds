@@ -93,7 +93,22 @@ The `cloudbuild.yaml` file defines:
 You do **not** need to manually configure Docker commands in the trigger UI.
 
 **Deploying the API**
-After Cloud Build completes successfully, a new Cloud Run service is created. Go to the service’s **Security** settings and ensure **Authentication** is set to allow public access.
+
+After Cloud Build completes successfully, Google Cloud will automatically create a new **Cloud Run** service for your API.
+
+1. Open **Cloud Run** in the Google Cloud Console.
+2. Click your newly deployed service.
+3. Go to the **Security** tab.
+4. Under **Authentication**, ensure that the service is set to **“Allow unauthenticated invocations.”**
+   This makes the API publicly accessible (required unless you intend to lock it down).
+
+Once that’s done, your deployed API will be reachable at a URL similar to:
+
+```
+https://bluesky-feed-ruleset-generator-123456789000.us-central1.run.app
+```
+
+Your service will have its own unique domain in this same format.
 
 ---
 

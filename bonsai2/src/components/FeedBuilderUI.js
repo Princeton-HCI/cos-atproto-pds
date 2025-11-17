@@ -46,7 +46,7 @@ const FeedBuilderUI = ({ credentials, setCredentials }) => {
       };
 
       const res = await axios.post(
-        process.env.REACT_APP_BLUESKY_FEED_MANAGER_API,
+        "https://feeds.princetonhci.social/manage-feed",
         postBody,
         {
           headers: {

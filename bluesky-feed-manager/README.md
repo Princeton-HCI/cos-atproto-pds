@@ -443,7 +443,7 @@ Here is an example of the JSON body you would POST to this service:
 ### Example cURL Command (with API key)
 
 ```bash
-curl -X POST http://feed.example.com/api/manage-feed \
+curl -X POST https://feed.example.com/api/manage-feed \
   -H "Content-Type: application/json" \
   -H "x-api-key: <your api key>" \
   -d '{
@@ -503,7 +503,7 @@ If successful, the server returns the feed URI:
 }
 ```
 
-You should then be able to see an identifier for the new feed if you go to that same link from before in your browser: `http://feed.example.com/api/xrpc/app.bsky.feed.describeFeedGenerator`. If everything has been implemented properly, you should see a response like this now:
+You should then be able to see an identifier for the new feed if you go to that same link from before in your browser: `https://feed.example.com/api/xrpc/app.bsky.feed.describeFeedGenerator`. If everything has been implemented properly, you should see a response like this now:
 
 ```json
 {
@@ -512,14 +512,14 @@ You should then be able to see an identifier for the new feed if you go to that 
     "did": "did:web:feeds.princetonhci.social",
     "feeds": [
       {
-        "uri": "at://did:plc:s7vox5mkocey4jsf2cvaaptw/app.bsky.feed.generator/adorable-pets-feed"
+        "uri": "at://did:plc:a1b2c3d4e5f6g7h8i9j0klmn/app.bsky.feed.generator/adorable-pets-feed"
       }
     ]
   }
 }
 ```
 
-You can also go to a link like this in your browser: `http://feeds.princetonhci.social/api/xrpc/app.bsky.feed.getFeedSkeleton?feed=at://did:plc:s7vox5mkocey4jsf2cvaaptw/app.bsky.feed.generator/adorable-pets-feed`. This will allow you to actually see the identifiers for handful of posts that have been dynamically collected for your new custom feed.
+You can also go to a link like this in your browser: `https://feed.example.com/api/xrpc/app.bsky.feed.getFeedSkeleton?feed=at://did:plc:a1b2c3d4e5f6g7h8i9j0klmn/app.bsky.feed.generator/adorable-pets-feed`. This will allow you to actually see the identifiers for handful of posts that have been dynamically collected for your new custom feed.
 
 ```json
 {
@@ -559,7 +559,7 @@ You can also go to a link like this in your browser: `http://feeds.princetonhci.
 }
 ```
 
-Lastly, you can actually see the new custom feed on the Bluesky website by going to a link like this one: `https://bsky.app/profile/did:plc:s7vox5mkocey4jsf2cvaaptw/feed/adorable-pets-feed`.
+Lastly, you can actually see the new custom feed on the Bluesky website by going to a link like this one: `https://bsky.app/profile/did:plc:a1b2c3d4e5f6g7h8i9j0klmn/feed/adorable-pets-feed`.
 
 ---
 

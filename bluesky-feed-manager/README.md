@@ -256,13 +256,8 @@ Then, add a block like this (replace `feed.example.com` with your actual domain)
 feed.example.com {
     encode gzip
 
-    # Proxy /api/* to the backend on port 8000
-    handle_path /api/* {
-        reverse_proxy http://127.0.0.1:8000
-    }
-
-    # Optional root endpoint for testing
-    respond / "Feeds API is running!" 200
+    # Send everything to FastAPI
+    reverse_proxy 127.0.0.1:8000
 }
 ```
 

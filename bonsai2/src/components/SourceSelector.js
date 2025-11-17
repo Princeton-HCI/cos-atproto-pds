@@ -3,7 +3,8 @@ import Panel from "./Panel";
 import {
   extractHandleOrDid,
   resolveDidFromHandleOrDid,
-} from "../utils/bluesky.ts";
+  getProfile,
+} from "../utils/bluesky";
 
 const SourceSelector = ({
   forPreferences = true,
@@ -33,22 +34,17 @@ const SourceSelector = ({
 
   // Fetch profile info for any DID that doesn't have it yet
   useEffect(() => {
-    const dids = sources.filter((src) => src.startsWith("did:"));
-    dids.forEach(async (did) => {
-      if (!profiles[did]) {
-        try {
-          const res = await fetch(
-            `https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${did}`
-          );
-          if (res.ok) {
-            const data = await res.json();
-            setProfiles((prev) => ({ ...prev, [did]: data }));
-          }
-        } catch (err) {
-          console.error("Failed to fetch profile for DID", did, err);
+    const fetchProfiles = async () => {
+      const dids = sources.filter((src) => src.startsWith("did:"));
+      for (const did of dids) {
+        if (!profiles[did]) {
+          const profile = await getProfile(did);
+          if (profile) setProfiles((prev) => ({ ...prev, [did]: profile }));
         }
       }
-    });
+    };
+
+    fetchProfiles();
   }, [sources, profiles]);
 
   const updateSuggestions = (data) => {

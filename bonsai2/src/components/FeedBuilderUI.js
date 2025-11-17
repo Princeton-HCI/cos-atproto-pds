@@ -1,12 +1,13 @@
 import { useState } from "react";
 import axios from "axios";
-import { agent } from "../utils/bluesky.ts";
+import { getAgent } from "../utils/bluesky";
 import IntentInput from "./IntentInput";
 import SourceSelector from "./SourceSelector";
 import RankingSelector from "./RankingSelector";
 import MetadataEditor from "./MetadataEditor";
+import Header from "./Header";
 
-const FeedBuilderUI = ({ credentials }) => {
+const FeedBuilderUI = ({ credentials, setCredentials }) => {
   const [feedBlueprint, setFeedBlueprint] = useState({});
   const [feedMetadata, setFeedMetadata] = useState("");
   const [loading, setLoading] = useState(false);
@@ -42,7 +43,7 @@ const FeedBuilderUI = ({ credentials }) => {
       };
 
       const res = await axios.post(
-        "http://feeds.princetonhci.social:8000/manage-feed",
+        "https://feeds.princetonhci.social/api/manage-feed",
         postBody,
         {
           headers: {
@@ -59,19 +60,20 @@ const FeedBuilderUI = ({ credentials }) => {
       const feedUrl = `https://bsky.app/profile/${feedUri.split("/")[2]}/feed/${
         feedUri.split("/")[4]
       }`;
+      console.log(feedUri);
+      console.log(feedUrl);
 
+      const agent = await getAgent();
       const { data: feedInfo } = await agent.app.bsky.feed.getFeedGenerator({
         feed: feedUri,
       });
-      await agent.like(feedUri, feedInfo.view.cid);
-      if (feedInfo.view.viewer?.like) {
-        console.log("Feed is already pinned/liked");
-      } else {
+      if (!feedInfo.view.viewer?.like) {
         await agent.like(feedUri, feedInfo.view.cid);
       }
 
       setDeployedFeedUri(feedUri);
       setDeployedFeedUrl(feedUrl);
+
       setDeploySuccess(true);
     } catch (err) {
       console.error("Failed to deploy feed:", err);
@@ -84,8 +86,7 @@ const FeedBuilderUI = ({ credentials }) => {
   return (
     <div className="app-container">
       <div className="ui-col">
-        <h1>🌳 Bonsai2</h1>
-
+        <Header setCredentials={setCredentials} handle={credentials?.handle} />
         <IntentInput
           setFeedBlueprint={setFeedBlueprint}
           setFeedMetadata={setFeedMetadata}

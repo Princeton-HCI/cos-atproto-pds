@@ -1,5 +1,4 @@
 import { decrypt } from "./crypto";
-import { agent } from "./bluesky.ts";
 
 export const verifyBlueskyLogin = async (handle, password) => {
   try {
@@ -36,11 +35,6 @@ export const getCredentials = async (setCredentials) => {
       handle: parsed.handle,
       password: decryptedPw,
       session: parsed.session,
-    });
-
-    await agent.login({
-      identifier: parsed.handle,
-      password: decryptedPw,
     });
   } catch (err) {
     console.error("Failed to decrypt credentials:", err);

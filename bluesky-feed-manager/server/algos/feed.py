@@ -9,6 +9,8 @@ import time
 from server.models import Feed, FeedSource, FeedCache
 
 CACHE_TTL = 60  # seconds
+RESPONSE_LIMIT = 100 # number of posts to be received from api response
+FEED_LIMIT = 100 # number of total posts in a feed
 
 CUSTOM_API_URL = os.environ.get("CUSTOM_API_URL")
 
@@ -55,7 +57,7 @@ async def fetch_full_post(uri: str) -> dict:
     return posts[0] if posts else {}
 
 
-async def fetch_author_posts(actor_did: str, limit: int = 10) -> list[dict]:
+async def fetch_author_posts(actor_did: str, limit: int = RESPONSE_LIMIT) -> list[dict]:
     """Fetch posts from a Bluesky author DID."""
     url = (
         "https://public.api.bsky.app/xrpc/"
@@ -89,7 +91,7 @@ async def fetch_author_posts(actor_did: str, limit: int = 10) -> list[dict]:
     return results
 
 
-async def search_topics(query: str, limit: int = 10) -> list[dict]:
+async def search_topics(query: str, limit: int = RESPONSE_LIMIT) -> list[dict]:
     """Use vector search to find relevant posts, returning minimal identifiers."""
     vector = encode_onnx(query).tolist()[0][0]
     body = json.dumps(vector)
@@ -153,7 +155,7 @@ def should_block_post(full_post: dict, blocked_dids: set, banned_keywords: set) 
 
 # Feed handler factory
 def make_handler(feed_uri: str):
-    async def build_feed(limit=10):
+    async def build_feed(limit=RESPONSE_LIMIT):
         """Build fresh feed skeleton by fetching sources + posts."""
         sources = (
             FeedSource
@@ -173,7 +175,7 @@ def make_handler(feed_uri: str):
                 collected.extend(await fetch_author_posts(src.identifier, limit))
 
             elif src.source_type == "topic_preference":
-                collected.extend(await search_topics(src.identifier, limit=limit))
+                collected.extend(await search_topics(src.identifier, limit))
 
             # Filters NOT fetched here — they are applied to results below.
 
@@ -198,13 +200,13 @@ def make_handler(feed_uri: str):
 
             filtered_posts.append(p)
 
-            if len(filtered_posts) >= limit:
+            if len(filtered_posts) >= FEED_LIMIT:
                 break
 
         # Format for Bluesky
         feed = {
             "cursor": str(int(time.time())),
-            "feed": [{"post": p["uri"]} for p in filtered_posts[:limit]]
+            "feed": [{"post": p["uri"]} for p in filtered_posts[:FEED_LIMIT]]
         }
 
         # Save to SQLite
@@ -228,14 +230,14 @@ def make_handler(feed_uri: str):
 
         return json.loads(row.response_json)  # stale but still valid
 
-    async def background_refresh(limit=10):
+    async def background_refresh(limit=RESPONSE_LIMIT):
         """Refresh cache in the background (non-blocking)."""
         try:
             await build_feed(limit)
         except Exception as e:
             print("Background refresh failed:", e)
 
-    async def handler(cursor="", limit=10):
+    async def handler(cursor="", limit=RESPONSE_LIMIT):
         # Try cached version first
         cached = await serve_from_cache(limit)
 

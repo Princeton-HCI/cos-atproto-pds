@@ -40,6 +40,17 @@ async def fetch_top_authors(query: str) -> list[str]:
     """Query the custom API for top authors using both text and embedding search."""
     suggested_dids = set()
     async with httpx.AsyncClient(timeout=30.0) as client:
+        async def bluesky_search():
+            url = "https://public.api.bsky.app/xrpc/app.bsky.actor.searchActors"
+            params = {"q": query, "limit": 4}
+            r = await client.get(url, params=params)
+            if r.status_code == 200:
+                data = r.json()
+                for actor in data.get("actors", []):
+                    did = actor.get("did")
+                    if did:
+                        suggested_dids.add(did)
+
         async def text_search():
             r = await client.get(f"{CUSTOM_API_URL}/search/authors", params={"q": query})
             if r.status_code == 200:
@@ -62,7 +73,7 @@ async def fetch_top_authors(query: str) -> list[str]:
                     if did:
                         suggested_dids.add(did)
 
-        await asyncio.gather(text_search(), vector_search())
+        await asyncio.gather(bluesky_search(), text_search(), vector_search())
 
     return list(suggested_dids)
 

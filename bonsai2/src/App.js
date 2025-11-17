@@ -15,7 +15,9 @@ const App = () => {
     return <LoginScreen onLoginSuccess={setCredentials} />;
   }
 
-  return <FeedBuilderUI credentials={credentials} />;
+  return (
+    <FeedBuilderUI credentials={credentials} setCredentials={setCredentials} />
+  );
 };
 
 export default App;

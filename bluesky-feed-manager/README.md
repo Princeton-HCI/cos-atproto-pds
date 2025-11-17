@@ -504,7 +504,7 @@ You should then be able to see an identifier for the new feed if you go to that 
 {
   "encoding": "application/json",
   "body": {
-    "did": "did:web:feeds.princetonhci.social",
+    "did": "did:web:feed.example.com",
     "feeds": [
       {
         "uri": "at://did:plc:a1b2c3d4e5f6g7h8i9j0klmn/app.bsky.feed.generator/adorable-pets-feed"

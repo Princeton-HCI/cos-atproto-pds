@@ -8,8 +8,8 @@ import asyncio
 import time
 from server.models import Feed, FeedSource, FeedCache
 
-CACHE_TTL = 60  # seconds
-RESPONSE_LIMIT = 100 # number of posts to be received from api response
+CACHE_TTL = 120  # seconds
+RESPONSE_LIMIT = 20 # number of posts to be received from api response
 FEED_LIMIT = 100 # number of total posts in a feed
 
 CUSTOM_API_URL = os.environ.get("CUSTOM_API_URL")

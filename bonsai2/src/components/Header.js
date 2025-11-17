@@ -54,6 +54,7 @@ const Header = ({
         display_name: feed.displayName,
         description: feed.description,
         id: feedId,
+        prefilled: true,
       });
 
       setShowFeedsOverlay(false); // close overlay

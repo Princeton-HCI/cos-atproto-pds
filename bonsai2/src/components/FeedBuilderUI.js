@@ -46,7 +46,7 @@ const FeedBuilderUI = ({ credentials, setCredentials }) => {
       };
 
       const res = await axios.post(
-        "https://feeds.princetonhci.social/manage-feed",
+        process.env.REACT_APP_BLUESKY_FEED_MANAGER_API,
         postBody,
         {
           headers: {
@@ -75,7 +75,6 @@ const FeedBuilderUI = ({ credentials, setCredentials }) => {
         doc(db, process.env.REACT_APP_FIREBASE_FIRESTORE_COLLECTION, feedId),
         feedBlueprint
       );
-      console.log("Feed blueprint saved to Firestore with id:", feedId);
     } catch (err) {
       console.error("Failed to deploy feed:", err);
       setError("Failed to deploy feed. Please try again.");
@@ -185,9 +184,11 @@ const FeedBuilderUI = ({ credentials, setCredentials }) => {
 
                   <div className="subtext">
                     <small>
-                      <code>ID: {feedMetadata.id || deployedFeedId}</code>{" "}
-                      (auto-generated, read-only)
+                      <code>ID: {feedMetadata.id || deployedFeedId}</code>
                     </small>
+                  </div>
+                  <div className="subtext">
+                    <small>(auto-generated, read-only)</small>
                   </div>
                 </div>
               </div>

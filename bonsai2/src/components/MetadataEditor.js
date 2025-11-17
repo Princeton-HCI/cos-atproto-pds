@@ -7,6 +7,7 @@ const MetadataEditor = ({ feedMetadata, setFeedMetadata }) => {
     display_name: "",
     description: "",
     id: "",
+    prefilled: false,
   });
 
   useEffect(() => {
@@ -25,7 +26,7 @@ const MetadataEditor = ({ feedMetadata, setFeedMetadata }) => {
       <div className="couple">
         <div className="single">
           <div className="textarea-label">Display Name</div>
-          <div className="subtext">
+          <div className="subtext" style={{ height: "32px" }}>
             The friendly name for your feed that users will see in Bluesky.
           </div>
           <div className="textarea-container">
@@ -41,9 +42,9 @@ const MetadataEditor = ({ feedMetadata, setFeedMetadata }) => {
         <div className="wedge" />
         <div className="single">
           <div className="textarea-label">Record Name</div>
-          <div className="subtext">
+          <div className="subtext" style={{ height: "32px" }}>
             The unique identifier for your feed, used in URLs and API calls.
-            Alphanumeric with hyphens only.
+            Alphanumeric with hyphens only. IMMUTABLE UPON DEPLOYMENT.
           </div>
           <div className="textarea-container">
             <input
@@ -52,6 +53,7 @@ const MetadataEditor = ({ feedMetadata, setFeedMetadata }) => {
               value={localData.record_name}
               onChange={(e) => handleChange("record_name", e.target.value)}
               placeholder="e.g., adorable-pets"
+              disabled={localData.prefilled}
             />
           </div>
         </div>
@@ -74,9 +76,11 @@ const MetadataEditor = ({ feedMetadata, setFeedMetadata }) => {
       </div>
 
       <div className="subtext">
-        <small>
-          <code>ID: {localData.id}</code> (auto-generated, read-only)
-        </small>
+        {localData.prefilled && (
+          <small>
+            <code>ID: {localData.id}</code> (auto-generated, read-only)
+          </small>
+        )}
       </div>
     </Panel>
   );

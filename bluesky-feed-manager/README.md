@@ -269,7 +269,7 @@ This tells Caddy to:
 
 **Explanation:**
 
-- `handle_path /*` → automatically **strips `/api`** before sending it upstream, so your feed generator sees `/xrpc/...` as it expects.
+- `handle_path /*` → is sent upstream, so your feed generator sees `/xrpc/...`.
 - `reverse_proxy http://127.0.0.1:8000` → points to your existing service.
 - `encode gzip` → optional, compresses responses.
 
@@ -324,19 +324,19 @@ This ensures Caddy is running and serving your API correctly. Caddy will automat
 Now you should be able to access:
 
 ```
-https://feed.example.com/xrpc/app.bsky.feed.describeFeedGenerator
+httpss://feed.example.com/xrpc/app.bsky.feed.describeFeedGenerator
 ```
 
 Caddy will:
 
-- Terminate HTTPS
+- Utilize HTTPS
 - Forward to your app on port 8000
 - Strip `/api` prefix
 
 Test with `curl`:
 
 ```bash
-curl -k http://feed.example.com/xrpc/app.bsky.feed.describeFeedGenerator
+curl -k https://feed.example.com/xrpc/app.bsky.feed.describeFeedGenerator
 ```
 
 Expected JSON:

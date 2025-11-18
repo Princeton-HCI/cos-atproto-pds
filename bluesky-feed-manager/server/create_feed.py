@@ -10,7 +10,7 @@ def create_feed(handle, password, hostname, record_name, display_name="", descri
     client = Client()
     client.login(handle, password)
 
-    feed_did = client.me.did
+    feed_did = f'did:web:{hostname}'
 
     avatar_blob = None
     if avatar_path and os.path.exists(avatar_path):

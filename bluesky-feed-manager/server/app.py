@@ -54,7 +54,7 @@ async def index():
                             |___|                                         |___|        
 
     Bluesky Feed Generator
-    https://github.com/Princeton-HCI/bluesky-feed-manager
+    https://github.com/Princeton-HCI/cos-atproto-pds/tree/main/bluesky-feed-manager
 
     Princeton HCI - 2025
     </pre>"""

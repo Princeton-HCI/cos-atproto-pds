@@ -53,7 +53,7 @@ async def index():
     |_____|_|___|___|___|_,_|_  |  |__|  |___|___|___|  |_|_|_|__,|_|_|__,|_  |___|_|  
                             |___|                                         |___|        
 
-    Bluesky Feed Generator
+    Bluesky Feed Manager
     https://github.com/Princeton-HCI/cos-atproto-pds/tree/main/bluesky-feed-manager
 
     Princeton HCI - 2025

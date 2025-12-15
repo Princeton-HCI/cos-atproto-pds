@@ -39,7 +39,11 @@ const Header = ({
     // Fetch blueprint from Firestore using id derived from feed.uri
     const feedId = `${feed.uri.split("/")[2]}~${feed.uri.split("/")[4]}`;
     try {
-      const docRef = doc(db, "bluesky-feed-rulesets", feedId);
+      const docRef = doc(
+        db,
+        process.env.REACT_APP_FIREBASE_FIRESTORE_COLLECTION,
+        feedId
+      );
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         setFeedBlueprint(docSnap.data());

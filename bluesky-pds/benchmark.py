@@ -140,7 +140,11 @@ async def collect_real_posts():
             if not text:
                 continue
 
-            created_at = record.get("createdAt")
+            created_at = None
+            created_at_str = record.get("createdAt")
+            if created_at_str:
+                dt = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
+                created_at = dt.replace(tzinfo=None)
 
             posts.append((
                 evt.get("did"),

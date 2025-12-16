@@ -33,7 +33,7 @@ FIREHOSE_URL = (
 )
 
 TRIALS = 10
-FIREHOSE_WINDOW = 30          # seconds per trial
+FIREHOSE_WINDOW = 10          # seconds per trial
 MAX_SAMPLE_WAIT = 60          # max seconds to collect sample posts
 POST_SAMPLE_TARGET = 30       # posts used for embedding / DB benchmarks
 
@@ -140,11 +140,7 @@ async def collect_real_posts():
             if not text:
                 continue
 
-            created_at = None
-            ts = record.get("createdAt")
-            if ts:
-                ts = ts.split(".")[0].replace("Z", "")
-                created_at = datetime.fromisoformat(ts)
+            created_at = record.get("createdAt")
 
             posts.append((
                 evt.get("did"),

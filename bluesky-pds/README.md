@@ -139,6 +139,8 @@ sudo pip3 install --upgrade --force-reinstall --ignore-installed \
     fastapi \
     uvicorn \
     transformers \
+    matplotlib \
+    pandas \
     --break-system-packages
 ```
 

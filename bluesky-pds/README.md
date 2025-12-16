@@ -125,7 +125,7 @@ Once done you can return here and continue onwards.
 
 ```bash
 sudo apt update
-sudo apt install -y python3-pip
+sudo apt install -y python3-pip xdg-utils
 
 sudo pip3 install --upgrade --force-reinstall --ignore-installed \
     websockets \
@@ -141,6 +141,7 @@ sudo pip3 install --upgrade --force-reinstall --ignore-installed \
     transformers \
     matplotlib \
     pandas \
+    seaborn \
     --break-system-packages
 ```
 

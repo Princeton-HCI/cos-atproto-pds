@@ -202,37 +202,59 @@ async def main():
     embed_flat = np.concatenate(all_embed)
     db_flat = np.concatenate(all_db)
 
-    # Line plots
-    plt.figure(figsize=(14, 6))
-    plt.plot(ingest_flat, label="Ingestion Time (s)")
-    plt.plot(embed_flat, label="Embedding Time (s)")
-    plt.plot(db_flat, label="DB Insert Time (s)")
-    plt.xlabel("Post Index")
-    plt.ylabel("Time (s)")
-    plt.title("Post Processing Times Over Trials")
-    plt.legend()
-    plt.grid(True)
+    # ============================
+    # LINE PLOTS (3 subplots)
+    # ============================
+    fig, axes = plt.subplots(3, 1, figsize=(14, 12), sharex=True)
+
+    axes[0].plot(ingest_flat, color="tab:blue")
+    axes[0].set_title("Ingestion Time per Post")
+    axes[0].set_ylabel("Seconds")
+    axes[0].grid(True)
+
+    axes[1].plot(embed_flat, color="tab:orange")
+    axes[1].set_title("Embedding Time per Post")
+    axes[1].set_ylabel("Seconds")
+    axes[1].grid(True)
+
+    axes[2].plot(db_flat, color="tab:green")
+    axes[2].set_title("DB Insert Time per Post")
+    axes[2].set_ylabel("Seconds")
+    axes[2].set_xlabel("Post Index")
+    axes[2].grid(True)
+
     plt.tight_layout()
     plt.savefig("line_plot_times.png")
-    plt.show()
+    plt.close()
 
-    # Bell curves / rates (posts per second)
-    ingest_rate = 1 / np.array(ingest_flat)
-    embed_rate = 1 / np.array(embed_flat)
-    db_rate = 1 / np.array(db_flat)
+    # ============================
+    # BELL CURVES (3 subplots)
+    # ============================
+    ingest_rate = 1 / ingest_flat
+    embed_rate = 1 / embed_flat
+    db_rate = 1 / db_flat
 
-    plt.figure(figsize=(14, 6))
-    sns.kdeplot(ingest_rate, fill=True, label="Ingestion Rate (posts/sec)")
-    sns.kdeplot(embed_rate, fill=True, label="Embedding Rate (posts/sec)")
-    sns.kdeplot(db_rate, fill=True, label="DB Insert Rate (posts/sec)")
-    plt.xlabel("Posts per Second")
-    plt.ylabel("Density")
-    plt.title("Post Processing Rates (Bell Curves)")
-    plt.legend()
-    plt.grid(True)
+    fig, axes = plt.subplots(3, 1, figsize=(14, 12))
+
+    sns.kdeplot(ingest_rate, fill=True, ax=axes[0], color="tab:blue")
+    axes[0].set_title("Ingestion Rate (posts/sec)")
+    axes[0].set_xlabel("Posts / Second")
+    axes[0].grid(True)
+
+    sns.kdeplot(embed_rate, fill=True, ax=axes[1], color="tab:orange")
+    axes[1].set_title("Embedding Rate (posts/sec)")
+    axes[1].set_xlabel("Posts / Second")
+    axes[1].grid(True)
+
+    sns.kdeplot(db_rate, fill=True, ax=axes[2], color="tab:green")
+    axes[2].set_title("DB Insert Rate (posts/sec)")
+    axes[2].set_xlabel("Posts / Second")
+    axes[2].grid(True)
+
     plt.tight_layout()
     plt.savefig("bell_curves_rates.png")
-    plt.show()
+    plt.close()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

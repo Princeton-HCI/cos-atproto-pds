@@ -207,7 +207,7 @@ async def benchmark_db_no_embedding(conn, posts):
 async def benchmark_db_with_embedding(conn, posts):
     times = []
     for post in posts:
-        emb = encode_onnx(post[3]).tolist()[0]
+        emb = encode_onnx(post[3]).tolist()[0][0]
         start = time.perf_counter()
         await conn.execute("""
             INSERT INTO temp_posts

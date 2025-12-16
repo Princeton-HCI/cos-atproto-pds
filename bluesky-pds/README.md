@@ -184,7 +184,168 @@ Once all the environment variables are in place, run the four python scripts.
 
 ---
 
-## 9. Shell Scripts to Manage Services
+## 9. Benchmarking Firehose Ingest Performance
+
+The repository includes **`benchmark.py`**, which measures:
+
+- Ingestion time
+- Embedding generation time
+- Database insert time
+
+Each benchmark run:
+
+- **10 trials**
+- **30 seconds per trial**
+- Generates performance visualizations
+
+### Run on the VM
+
+SSH into your GCP VM and run:
+
+```bash
+python3 benchmark.py
+```
+
+This produces the following files **on the VM filesystem**:
+
+- `line_plot_times.png`
+- `bell_curves_rates.png`
+
+These images are saved in:
+
+```text
+/home/<user>/cos-atproto-pds/bluesky-pds/
+```
+
+---
+
+## 11. Install and Authenticate gcloud CLI (Local Machine)
+
+You must install and authenticate the **Google Cloud CLI** locally in order to copy files from the VM.
+
+---
+
+### macOS
+
+Install:
+
+```bash
+brew install --cask google-cloud-sdk
+```
+
+Restart your terminal, then authenticate:
+
+```bash
+gcloud init
+```
+
+This will:
+
+- Open a browser
+- Log you into Google
+- Select a GCP project
+- Configure default region/zone
+
+Verify:
+
+```bash
+gcloud compute instances list
+```
+
+---
+
+### Linux (Ubuntu / Debian)
+
+Install:
+
+```bash
+sudo apt update
+sudo apt install -y google-cloud-cli
+```
+
+Authenticate:
+
+```bash
+gcloud init
+```
+
+Verify:
+
+```bash
+gcloud compute instances list
+```
+
+---
+
+### Windows
+
+1. Download the installer:
+   [https://cloud.google.com/sdk/docs/install](https://cloud.google.com/sdk/docs/install)
+
+2. Run the installer and enable:
+
+   - “Add gcloud to PATH”
+   - “Install bundled Python”
+
+3. Open **PowerShell** or **Command Prompt**, then authenticate:
+
+```powershell
+gcloud init
+```
+
+Verify:
+
+```powershell
+gcloud compute instances list
+```
+
+---
+
+## 12. Pull Benchmark Images from VM to Local Machine
+
+Run these commands **from your local machine** (not the VM).
+
+---
+
+### macOS / Linux
+
+```bash
+gcloud compute scp <user>@bluesky-pds:/home/<user>/cos-atproto-pds/bluesky-pds/line_plot_times.png ./line_plot_times.png --zone=<YOUR VM ZONE>
+```
+
+```bash
+gcloud compute scp <user>@bluesky-pds:/home/<user>/cos-atproto-pds/bluesky-pds/bell_curves_rates.png ./bell_curves_rates.png --zone=<YOUR VM ZONE>
+```
+
+Open the images:
+
+```bash
+open line_plot_times.png
+open bell_curves_rates.png
+```
+
+---
+
+### Windows (PowerShell)
+
+```powershell
+gcloud compute scp <user>@bluesky-pds:/home/<user>/cos-atproto-pds/bluesky-pds/line_plot_times.png .\line_plot_times.png --zone=<YOUR VM ZONE>
+```
+
+```powershell
+gcloud compute scp <user>@bluesky-pds:/home/<user>/cos-atproto-pds/bluesky-pds/bell_curves_rates.png .\bell_curves_rates.png --zone=<YOUR VM ZONE>
+```
+
+Open the images:
+
+```powershell
+start line_plot_times.png
+start bell_curves_rates.png
+```
+
+---
+
+## 13. Shell Scripts to Manage Services
 
 The repository also includes shell scripts to perpetually run each service in the background:
 
@@ -208,7 +369,7 @@ Run them as needed:
 
 ---
 
-## 10. Set Up Caddy Proxy
+## 14. Set Up Caddy Proxy
 
 Your PDS likely already uses Caddy via Docker.
 
@@ -255,7 +416,7 @@ sudo docker restart <caddy-container-id>
 
 ---
 
-## 11. Verify
+## 15. Verify
 
 Test search endpoint:
 
@@ -267,7 +428,7 @@ You should get results from your ingested posts.
 
 ---
 
-## 12. Create and Save Google Cloud SQL Studio Queries
+## 16. Create and Save Google Cloud SQL Studio Queries
 
 Access **Cloud SQL Query Editor**:
 
@@ -374,5 +535,6 @@ You now have a working:
 - Pruning script
 - FastAPI-powered search API
 - Reverse proxy via Caddy
+- Performance benchmarking with visual analysis
 
 You can now build richer services on top of your self-hosted Bluesky data.

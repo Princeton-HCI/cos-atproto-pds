@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import asyncio
 import websockets
 import aiohttp
@@ -12,6 +11,8 @@ from dotenv import load_dotenv
 import onnxruntime as ort
 from transformers import AutoTokenizer
 import logging
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 # -----------------------
 # Logging
@@ -38,6 +39,9 @@ FIREHOSE_URL = "wss://jetstream2.us-east.bsky.network/subscribe?wantedCollection
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "all-MiniLM-L6-v2.onnx")
 TOKENIZER_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
+TRIALS = 10
+TRIAL_DURATION = 30  # seconds per trial
+
 # -----------------------
 # ONNX Model
 # -----------------------
@@ -45,7 +49,6 @@ tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_NAME)
 session = ort.InferenceSession(MODEL_PATH, providers=["CPUExecutionProvider"])
 
 def encode_onnx(texts):
-    """Return normalized embeddings from ONNX model."""
     if isinstance(texts, str):
         texts = [texts]
     inputs = tokenizer(texts, padding=True, truncation=True, return_tensors="np")
@@ -57,7 +60,6 @@ def encode_onnx(texts):
     return embeddings
 
 def extract_text(record):
-    """Extract post text + alt text from embedded images."""
     text = record.get("text", "")
     alt_texts = []
     embed = record.get("embed", {})
@@ -108,10 +110,9 @@ async def init_db():
     logger.info("Database initialized and tables ensured.")
 
 # -----------------------
-# Benchmark Firehose
+# Firehose Trial
 # -----------------------
-async def handle_firehose(num_posts: int = 30):
-    """Listen to firehose, insert posts, and measure timings."""
+async def run_trial(duration=30):
     db = await asyncpg.create_pool(
         host=DB_HOST,
         port=DB_PORT,
@@ -128,23 +129,22 @@ async def handle_firehose(num_posts: int = 30):
         )
     )
 
-    collect_times = []
+    start_time = time.perf_counter()
+    ingestion_times = []
     embedding_times = []
     db_times = []
-    post_count = 0
 
     async with websockets.connect(FIREHOSE_URL, ping_interval=20, ping_timeout=10) as ws:
-        logger.info("Connected to Bluesky firehose.")
-
         async for message in ws:
-            if post_count >= num_posts:
+            now = time.perf_counter()
+            if now - start_time > duration:
                 break
 
-            # Timing: ingestion
-            start_collect = time.perf_counter()
+            # Ingestion
+            t0 = time.perf_counter()
             evt = json.loads(message)
-            end_collect = time.perf_counter()
-            collect_times.append(end_collect - start_collect)
+            t1 = time.perf_counter()
+            ingestion_times.append(t1 - t0)
 
             commit = evt.get("commit", {})
             if commit.get("collection") != "app.bsky.feed.post" or commit.get("operation") != "create":
@@ -155,53 +155,84 @@ async def handle_firehose(num_posts: int = 30):
             cid = commit.get("cid")
             record = commit.get("record", {})
             record_json = json.dumps(record)
-
             combined_text = extract_text(record)
 
-            # Timing: embedding
-            start_embed = time.perf_counter()
+            # Embedding
+            t2 = time.perf_counter()
             post_embedding = encode_onnx(combined_text).tolist()[0][0]
-            end_embed = time.perf_counter()
-            embedding_times.append(end_embed - start_embed)
+            t3 = time.perf_counter()
+            embedding_times.append(t3 - t2)
 
-            # Parse creation time
+            # DB insert
             created_at = None
             created_at_str = record.get("createdAt")
             if created_at_str:
                 dt = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
                 created_at = dt.replace(tzinfo=None)
-
-            # Timing: DB insertion
-            start_db = time.perf_counter()
+            t4 = time.perf_counter()
             await db.execute(
                 INSERT_POST_SQL,
                 repo, rkey, cid, combined_text, created_at, post_embedding, record_json
             )
-            end_db = time.perf_counter()
-            db_times.append(end_db - start_db)
-
-            post_count += 1
-            logger.info(
-                f"Post {post_count}/{num_posts} processed — "
-                f"collect: {collect_times[-1]:.4f}s, "
-                f"embed: {embedding_times[-1]:.4f}s, "
-                f"db: {db_times[-1]:.4f}s"
-            )
-
-    # Summary
-    logger.info("\n=== TIMING SUMMARY ===")
-    logger.info(f"Avg collect time: {np.mean(collect_times):.4f}s")
-    logger.info(f"Avg embedding time: {np.mean(embedding_times):.4f}s")
-    logger.info(f"Avg DB insert time: {np.mean(db_times):.4f}s")
+            t5 = time.perf_counter()
+            db_times.append(t5 - t4)
 
     await db.close()
+    return ingestion_times, embedding_times, db_times
 
 # -----------------------
-# Main
+# Benchmark Loop
 # -----------------------
 async def main():
     await init_db()
-    await handle_firehose(num_posts=30)  # adjust sample size here
+
+    all_ingest = []
+    all_embed = []
+    all_db = []
+
+    for trial in range(TRIALS):
+        logger.info(f"Starting trial {trial+1}/{TRIALS}...")
+        ingest, embed, db_times = await run_trial(duration=TRIAL_DURATION)
+        all_ingest.append(ingest)
+        all_embed.append(embed)
+        all_db.append(db_times)
+
+    # Convert to flat arrays for plotting
+    ingest_flat = np.concatenate(all_ingest)
+    embed_flat = np.concatenate(all_embed)
+    db_flat = np.concatenate(all_db)
+
+    # Line plots
+    plt.figure(figsize=(14, 6))
+    plt.plot(ingest_flat, label="Ingestion Time (s)")
+    plt.plot(embed_flat, label="Embedding Time (s)")
+    plt.plot(db_flat, label="DB Insert Time (s)")
+    plt.xlabel("Post Index")
+    plt.ylabel("Time (s)")
+    plt.title("Post Processing Times Over Trials")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig("line_plot_times.png")
+    plt.show()
+
+    # Bell curves / rates (posts per second)
+    ingest_rate = 1 / np.array(ingest_flat)
+    embed_rate = 1 / np.array(embed_flat)
+    db_rate = 1 / np.array(db_flat)
+
+    plt.figure(figsize=(14, 6))
+    sns.kdeplot(ingest_rate, fill=True, label="Ingestion Rate (posts/sec)")
+    sns.kdeplot(embed_rate, fill=True, label="Embedding Rate (posts/sec)")
+    sns.kdeplot(db_rate, fill=True, label="DB Insert Rate (posts/sec)")
+    plt.xlabel("Posts per Second")
+    plt.ylabel("Density")
+    plt.title("Post Processing Rates (Bell Curves)")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig("bell_curves_rates.png")
+    plt.show()
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -67,7 +67,7 @@ async def process_posts(pool, batch_size=32):
 
         for r in rows:
             text = r["text"] or ""
-            embedding = embed(text)[0][0]
+            embedding = embed(text)[0]
 
             await conn.execute(
                 """

@@ -33,7 +33,7 @@ def embed(texts):
 async def process_authors(pool, batch_size=16):
     async with pool.acquire() as conn:
         rows = await conn.fetch("""
-            SELECT id, display_name, handle, description, posts_text
+            SELECT id, display_name, handle, description, recent_posts
             FROM authors
             WHERE display_name_embedding IS NULL
             LIMIT $1
@@ -46,14 +46,14 @@ async def process_authors(pool, batch_size=16):
             emb_display_name = embed(r["display_name"] or [""])[0]
             emb_handle = embed(r["handle"] or [""])[0]
             emb_description = embed(r["description"] or [""])[0]
-            emb_posts = embed(r["posts_text"] or [""])[0]
+            emb_recent_posts = embed(r["recent_posts"] or [""])[0]
 
             await conn.execute("""
                 UPDATE authors
                 SET display_name_embedding=$1,
                     handle_embedding=$2,
                     description_embedding=$3,
-                    posts_embedding=$4
+                    recent_posts_embedding=$4
                 WHERE id=$5
             """, emb_display_name, emb_handle, emb_description, emb_posts, r["id"])
 

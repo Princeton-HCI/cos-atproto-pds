@@ -110,7 +110,7 @@ sudo nano /etc/postgresql/16/main/postgresql.conf
 listen_addresses = '*'
 ```
 
-2. Edit **pg_hba.conf** to allow your VM’s user to connect:
+2. Edit **pg_hba.conf** to allow your VM's user to connect:
 
 ```bash
 sudo nano /etc/postgresql/16/main/pg_hba.conf
@@ -141,7 +141,7 @@ Run:
 psql "host=<your-instance-public-ip> dbname=pds_db user=pds_user password=<your-password> sslmode=require"
 ```
 
-If successful, you’ll see the PostgreSQL prompt:
+If successful, you'll see the PostgreSQL prompt:
 
 ```
 pds_db=>
@@ -416,7 +416,7 @@ start bell_curves_rates.png
 
 ---
 
-Here’s the updated section with the **explicit recommended startup order** added at the end, without changing the existing structure or tone:
+Here's the updated section with the **explicit recommended startup order** added at the end, without changing the existing structure or tone:
 
 ---
 
@@ -534,61 +534,101 @@ You should get results from your ingested posts.
 
 ---
 
-## 16. Useful Queries
+Good catch — here's the **corrected and final version** of that section, explicitly accounting for:
 
-Here are some useful
+- ✅ **Password-authenticated user**
+- ✅ **External IP access from the PDS VM**
+- ✅ **Local access from the DB VM**
+- ✅ Still using **one-liners**
 
-### 3. Drop tables
+This can safely replace **Section 16** in your README.
+
+---
+
+## 16. Useful Queries (VM-Hosted Postgres)
+
+These queries can be run either:
+
+- **Locally on the database VM**, or
+- **Remotely from the PDS VM** using the database VM's **external IP + password**
+
+---
+
+### Connect to Postgres (from the Database VM)
+
+SSH into the **database VM**, then run:
+
+```bash
+sudo -i -u postgres psql blueskydb
+```
+
+You'll be prompted for the password if required.
+
+---
+
+### Connect to Postgres (from the PDS VM)
+
+From the **PDS VM**, connect using the database VM's **external IP**:
+
+```bash
+psql -h <DB_VM_EXTERNAL_IP> -U blueskydbuser -d blueskydb
+```
+
+Enter the password defined during database setup when prompted.
+
+> 🔒 This works because `pg_hba.conf` allows password (`md5`) connections and the firewall permits port `5432`.
+
+---
+
+### 1. Drop tables
 
 **`dropAuthors`**
 
 ```sql
-DROP TABLE
-  "public"."authors";
+DROP TABLE IF EXISTS public.authors;
 ```
 
 **`dropPosts`**
 
 ```sql
-DROP TABLE
-  "public"."posts";
+DROP TABLE IF EXISTS public.posts;
 ```
 
-### 4. Quick stats and previews
+---
+
+### 2. Quick stats and previews
 
 **`getAuthors1k`**
 
 ```sql
-SELECT *
-FROM authors
-ORDER BY updated_at DESC
-LIMIT 1000;
+SELECT * FROM authors ORDER BY updated_at DESC LIMIT 1000;
 ```
 
 **`getAuthorsCount`**
 
 ```sql
-SELECT COUNT(*) AS author_count
-FROM authors;
+SELECT COUNT(*) AS author_count FROM authors;
 ```
 
 **`getPosts1k`**
 
 ```sql
-SELECT *
-FROM posts
-ORDER BY created_at DESC
-LIMIT 1000;
+SELECT * FROM posts ORDER BY created_at DESC LIMIT 1000;
 ```
 
 **`getPostsCount`**
 
 ```sql
-SELECT COUNT(*) AS post_count
-FROM posts;
+SELECT COUNT(*) AS post_count FROM posts;
 ```
 
-Each query now has a clear name label for easier reference and saving in Cloud SQL Studio.
+---
+
+### Exit `psql`
+
+```sql
+\q
+```
 
 ---
 

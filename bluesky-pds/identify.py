@@ -45,12 +45,13 @@ INSERT INTO authors (
     recent_posts, followers_count, follows_count, posts_count, updated_at,
     display_name_embedding, handle_embedding, description_embedding, recent_posts_embedding
 )
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
 ON CONFLICT (id) DO UPDATE
 SET
     handle = EXCLUDED.handle,
     display_name = EXCLUDED.display_name,
     description = EXCLUDED.description,
+    recent_posts = EXCLUDED.recent_posts,
     followers_count = EXCLUDED.followers_count,
     follows_count = EXCLUDED.follows_count,
     posts_count = EXCLUDED.posts_count,

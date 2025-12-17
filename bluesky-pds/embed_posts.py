@@ -90,12 +90,6 @@ async def main():
         password=DB_PASSWORD,
         database=DB_NAME,
         ssl="require",
-        init=lambda c: c.set_type_codec(
-            "vector",
-            encoder=lambda v: "[" + ",".join(map(str, v)) + "]",
-            schema="public",
-            format="text",
-        ),
         min_size=1,
         max_size=4,
     )

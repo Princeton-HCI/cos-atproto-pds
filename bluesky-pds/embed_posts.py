@@ -19,30 +19,58 @@ DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 
 MODEL_PATH = "all-MiniLM-L6-v2.onnx"
-TOKENIZER = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
+
+TOKENIZER = AutoTokenizer.from_pretrained(
+    "sentence-transformers/all-MiniLM-L6-v2"
+)
 SESSION = ort.InferenceSession(MODEL_PATH)
 
 def embed(texts):
+    """
+    Embed a list of texts safely.
+    - Handles empty strings
+    - Prevents NaN / Inf vectors
+    """
     if isinstance(texts, str):
         texts = [texts]
-    inputs = TOKENIZER(texts, padding=True, truncation=True, return_tensors="np")
+
+    # Ensure no None / empty-only strings
+    texts = [t if t and t.strip() else "" for t in texts]
+
+    inputs = TOKENIZER(
+        texts,
+        padding=True,
+        truncation=True,
+        return_tensors="np",
+    )
+
     vecs = SESSION.run(None, dict(inputs))[0]
-    vecs /= np.linalg.norm(vecs, axis=1, keepdims=True)
+
+    # Safe normalization
+    norms = np.linalg.norm(vecs, axis=1, keepdims=True)
+    norms = np.clip(norms, 1e-12, None)  # avoid divide-by-zero
+    vecs = vecs / norms
+
     return vecs.tolist()
 
-async def process_posts(pool, batch_size=32):
+async def process_posts(pool, batch_size=64):
     async with pool.acquire() as conn:
-        rows = await conn.fetch("""
+        rows = await conn.fetch(
+            """
             SELECT id, text
             FROM posts
             WHERE embedded = FALSE
+              AND text IS NOT NULL
+              AND length(trim(text)) > 0
             LIMIT $1
-        """, batch_size)
+            """,
+            batch_size,
+        )
 
         if not rows:
             return 0
 
-        texts = [r["text"] or "" for r in rows]
+        texts = [r["text"] for r in rows]
         vectors = embed(texts)
 
         for r, v in zip(rows, vectors):
@@ -54,7 +82,7 @@ async def process_posts(pool, batch_size=32):
                 WHERE id = $2
                 """,
                 v,
-                r["id"]
+                r["id"],
             )
 
         return len(rows)
@@ -70,18 +98,25 @@ async def main():
         init=lambda c: c.set_type_codec(
             "vector",
             encoder=lambda v: "[" + ",".join(map(str, v)) + "]",
-            decoder=lambda v: [float(x) for x in v.strip("[]").split(",")],
             schema="public",
             format="text",
         ),
+        min_size=1,
+        max_size=4,
     )
 
+    logger.info("Post embedding worker started")
+
     while True:
-        n = await process_posts(pool)
-        if n == 0:
-            await asyncio.sleep(2)
-        else:
-            logger.info(f"Embedded {n} posts")
+        try:
+            n = await process_posts(pool)
+            if n == 0:
+                await asyncio.sleep(2)
+            else:
+                logger.info(f"Embedded {n} posts")
+        except Exception:
+            logger.exception("Embedding loop error")
+            await asyncio.sleep(5)
 
 if __name__ == "__main__":
     asyncio.run(main())

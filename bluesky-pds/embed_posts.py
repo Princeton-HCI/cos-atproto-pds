@@ -53,7 +53,7 @@ async def process_posts(pool, batch_size=32):
                     embedded = TRUE
                 WHERE id = $2
                 """,
-                v[0],
+                v,
                 r["id"]
             )
 

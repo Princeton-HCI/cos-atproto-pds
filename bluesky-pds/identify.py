@@ -21,6 +21,7 @@ DB_NAME = os.getenv("DB_NAME")
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 
+# SQL definitions
 CREATE_AUTHORS_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS authors (
     id TEXT PRIMARY KEY,
@@ -52,6 +53,7 @@ SET
     updated_at = GREATEST(authors.updated_at, EXCLUDED.updated_at);
 """
 
+# Initialize DB
 async def init_db():
     conn = await asyncpg.connect(
         host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASSWORD, database=DB_NAME, ssl="require"
@@ -60,11 +62,13 @@ async def init_db():
     await conn.close()
     logger.info("Author DB ready.")
 
+# Fetch profile from Bluesky API
 async def fetch_profile(session, did):
     url = f"https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor={did}"
     try:
         async with session.get(url, timeout=10) as resp:
             if resp.status != 200:
+                logger.warning(f"Profile fetch failed for {did}, status {resp.status}")
                 return {}
             data = await resp.json()
             return {
@@ -79,7 +83,36 @@ async def fetch_profile(session, did):
         logger.warning(f"Profile fetch failed for {did}: {e}")
         return {}
 
-async def build_authors():
+# Process a single author
+async def process_author(conn, http, did):
+    profile = await fetch_profile(http, did)
+    posts = await conn.fetch("""
+        SELECT text, created_at FROM posts
+        WHERE repo = $1
+        ORDER BY created_at DESC
+        LIMIT 500
+    """, did)
+
+    posts_text = " ".join(p["text"] for p in posts)[:500]
+    updated_at = max((p["created_at"] for p in posts), default=datetime.utcnow())
+
+    await conn.execute(
+        UPSERT_AUTHOR_SQL,
+        did,
+        profile.get("handle", did),
+        profile.get("display_name", ""),
+        profile.get("description", ""),
+        profile.get("followers_count", 0),
+        profile.get("follows_count", 0),
+        profile.get("posts_count", 0),
+        updated_at,
+    )
+
+    await conn.execute("UPDATE posts SET author_processed = TRUE WHERE repo = $1", did)
+    logger.info(f"Processed author {did}")
+
+# Main author processing loop
+async def build_authors(batch_size=50, concurrency=10):
     pool = await asyncpg.create_pool(
         host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASSWORD,
         database=DB_NAME, ssl="require"
@@ -87,51 +120,32 @@ async def build_authors():
     async with aiohttp.ClientSession() as http:
         while True:
             async with pool.acquire() as conn:
-                # get posts whose authors haven't been processed
-                rows = await conn.fetch("""
+                # Get unprocessed authors
+                rows = await conn.fetch(f"""
                     SELECT DISTINCT repo
                     FROM posts
                     WHERE author_processed = FALSE
-                    LIMIT 100
+                    LIMIT {batch_size}
                 """)
                 if not rows:
                     await asyncio.sleep(5)
                     continue
 
-                for row in rows:
-                    did = row["repo"]
-                    profile = await fetch_profile(http, did)
-                    # get latest posts for this author
-                    posts = await conn.fetch("""
-                        SELECT text, created_at FROM posts
-                        WHERE repo = $1
-                        ORDER BY created_at DESC
-                        LIMIT 500
-                    """, did)
-                    posts_text = " ".join(p["text"] for p in posts)[:500]
+                dids = [r["repo"] for r in rows]
 
-                    updated_at = max(p["created_at"] for p in posts) if posts else datetime.utcnow()
+                # Limit concurrency
+                sem = asyncio.Semaphore(concurrency)
 
-                    await conn.execute(
-                        UPSERT_AUTHOR_SQL,
-                        did,
-                        profile.get("handle", did),
-                        profile.get("display_name", ""),
-                        profile.get("description", ""),
-                        profile.get("followers_count", 0),
-                        profile.get("follows_count", 0),
-                        profile.get("posts_count", 0),
-                        updated_at,
-                    )
+                async def sem_task(did):
+                    async with sem:
+                        await process_author(conn, http, did)
 
-                    # mark posts as processed
-                    await conn.execute("""
-                        UPDATE posts SET author_processed = TRUE
-                        WHERE repo = $1
-                    """, did)
+                tasks = [sem_task(did) for did in dids]
+                await asyncio.gather(*tasks)
 
             await asyncio.sleep(1)  # small pause between batches
 
+# Entrypoint
 async def main():
     await init_db()
     await build_authors()

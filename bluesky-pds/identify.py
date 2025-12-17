@@ -31,16 +31,21 @@ CREATE TABLE IF NOT EXISTS authors (
     followers_count INTEGER DEFAULT 0,
     follows_count INTEGER DEFAULT 0,
     posts_count INTEGER DEFAULT 0,
-    updated_at TIMESTAMP
+    updated_at TIMESTAMP,
+    display_name_embedding VECTOR(384),
+    handle_embedding VECTOR(384),
+    description_embedding VECTOR(384),
+    posts_embedding VECTOR(384)
 );
 """
 
 UPSERT_AUTHOR_SQL = """
 INSERT INTO authors (
     id, handle, display_name, description,
-    followers_count, follows_count, posts_count, updated_at
+    followers_count, follows_count, posts_count, updated_at,
+    display_name_embedding, handle_embedding, description_embedding, posts_embedding
 )
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
 ON CONFLICT (id) DO UPDATE
 SET
     handle = EXCLUDED.handle,
@@ -49,7 +54,11 @@ SET
     followers_count = EXCLUDED.followers_count,
     follows_count = EXCLUDED.follows_count,
     posts_count = EXCLUDED.posts_count,
-    updated_at = GREATEST(authors.updated_at, EXCLUDED.updated_at);
+    updated_at = GREATEST(authors.updated_at, EXCLUDED.updated_at),
+    display_name_embedding = COALESCE(EXCLUDED.display_name_embedding, authors.display_name_embedding),
+    handle_embedding = COALESCE(EXCLUDED.handle_embedding, authors.handle_embedding),
+    description_embedding = COALESCE(EXCLUDED.description_embedding, authors.description_embedding),
+    posts_embedding = COALESCE(EXCLUDED.posts_embedding, authors.posts_embedding);
 """
 
 async def init_db():
@@ -104,6 +113,10 @@ async def process_author(pool, session, did):
             profile.get("follows_count", 0),
             profile.get("posts_count", 0),
             updated_at,
+            None,
+            None,
+            None,
+            None
         )
 
         await conn.execute(

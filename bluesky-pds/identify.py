@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS authors (
 UPSERT_AUTHOR_SQL = """
 INSERT INTO authors (
     id, handle, display_name, description,
-    followers_count, follows_count, posts_count, updated_at,
+    recent_posts, followers_count, follows_count, posts_count, updated_at,
     display_name_embedding, handle_embedding, description_embedding, recent_posts_embedding
 )
 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
@@ -109,7 +109,7 @@ async def process_author(pool, session, did):
             profile.get("handle", did),
             profile.get("display_name", ""),
             profile.get("description", ""),
-            profile.get("recent_posts", recent_posts),
+            recent_posts,
             profile.get("followers_count", 0),
             profile.get("follows_count", 0),
             profile.get("posts_count", 0),

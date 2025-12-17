@@ -67,6 +67,44 @@ async def init_db():
         host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASSWORD, database=DB_NAME, ssl="require"
     )
     await conn.execute(CREATE_AUTHORS_TABLE_SQL)
+    await conn.execute("""
+        CREATE INDEX IF NOT EXISTS authors_display_name_embedding_idx
+        ON authors USING ivfflat (display_name_embedding vector_l2_ops)
+        WITH (lists = 200);
+    """)
+    await conn.execute("""
+        CREATE INDEX IF NOT EXISTS authors_handle_embedding_idx
+        ON authors USING ivfflat (handle_embedding vector_l2_ops)
+        WITH (lists = 200);
+    """)
+    await conn.execute("""
+        CREATE INDEX IF NOT EXISTS authors_description_embedding_idx
+        ON authors USING ivfflat (description_embedding vector_l2_ops)
+        WITH (lists = 200);
+    """)
+    await conn.execute("""
+        CREATE INDEX IF NOT EXISTS authors_recent_posts_embedding_idx
+        ON authors USING ivfflat (recent_posts_embedding vector_l2_ops)
+        WITH (lists = 200);
+    """)
+    await conn.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
+    await conn.execute("""
+        CREATE INDEX IF NOT EXISTS authors_display_name_trgm_idx
+        ON authors USING GIN (display_name gin_trgm_ops);
+    """)
+    await conn.execute("""
+        CREATE INDEX IF NOT EXISTS authors_handle_trgm_idx
+        ON authors USING GIN (handle gin_trgm_ops);
+    """)
+    await conn.execute("""
+        CREATE INDEX IF NOT EXISTS authors_description_trgm_idx
+        ON authors USING GIN (description gin_trgm_ops);
+    """)
+    await conn.execute("""
+        CREATE INDEX IF NOT EXISTS authors_recent_posts_trgm_idx
+        ON authors USING GIN (recent_posts gin_trgm_ops);
+    """)
+
     await conn.close()
     logger.info("Author DB ready.")
 

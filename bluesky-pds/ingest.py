@@ -59,8 +59,19 @@ async def init_db():
         CREATE INDEX IF NOT EXISTS posts_created_at_idx
         ON posts (created_at);
     """)
+    await conn.execute("""
+        CREATE INDEX IF NOT EXISTS posts_embedding_idx
+        ON posts USING ivfflat (embedding vector_l2_ops)
+        WITH (lists = 200);
+    """)
+    await conn.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
+    await conn.execute("""
+        CREATE INDEX IF NOT EXISTS posts_text_trgm_idx
+        ON posts USING GIN (text gin_trgm_ops);
+    """)
+
     await conn.close()
-    logger.info("Database ready.")
+    logger.info("Posts DB ready.")
 
 def extract_text(record):
     text = record.get("text", "")

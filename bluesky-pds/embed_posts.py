@@ -26,9 +26,15 @@ TOKENIZER = AutoTokenizer.from_pretrained(
 SESSION = ort.InferenceSession(MODEL_PATH)
 
 def embed(texts):
+    """
+    Embed a list of texts safely.
+    - Handles empty strings
+    - Prevents NaN / Inf vectors
+    """
     if isinstance(texts, str):
         texts = [texts]
 
+    # Ensure no None / empty-only strings
     texts = [t if t and t.strip() else "" for t in texts]
 
     inputs = TOKENIZER(
@@ -42,31 +48,27 @@ def embed(texts):
 
     # Safe normalization
     norms = np.linalg.norm(vecs, axis=1, keepdims=True)
-    norms = np.clip(norms, 1e-12, None)
+    norms = np.clip(norms, 1e-12, None)  # avoid divide-by-zero
     vecs = vecs / norms
 
     return vecs.tolist()
 
-async def process_posts(pool, batch_size=64):
+async def process_posts(pool, batch_size=32):
     async with pool.acquire() as conn:
-        rows = await conn.fetch(
-            """
+        rows = await conn.fetch("""
             SELECT id, text
             FROM posts
             WHERE embedded = FALSE
-              AND text IS NOT NULL
-              AND length(trim(text)) > 0
             LIMIT $1
-            """,
-            batch_size,
-        )
+        """, batch_size)
 
         if not rows:
             return 0
 
-        vectors = embed([r["text"] for r in rows])
+        for r in rows:
+            text = r["text"] or ""
+            embedding = embed(text)[0][0]
 
-        for r, v in zip(rows, vectors):
             await conn.execute(
                 """
                 UPDATE posts
@@ -74,8 +76,8 @@ async def process_posts(pool, batch_size=64):
                     embedded = TRUE
                 WHERE id = $2
                 """,
-                v[0],
-                r["id"],
+                embedding,
+                r["id"]
             )
 
         return len(rows)
@@ -88,15 +90,14 @@ async def main():
         password=DB_PASSWORD,
         database=DB_NAME,
         ssl="require",
-        min_size=1,
-        max_size=4,
         init=lambda c: c.set_type_codec(
             "vector",
+            encoder=lambda v: "[" + ",".join(map(str, v)) + "]",
             schema="public",
             format="text",
-            encoder=lambda v: "[" + ",".join(map(str, v)) + "]",
-            decoder=lambda v: [float(x) for x in v.strip("[]").split(",")],
         ),
+        min_size=1,
+        max_size=4,
     )
 
     logger.info("Post embedding worker started")

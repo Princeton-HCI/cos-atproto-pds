@@ -33,7 +33,8 @@ def embed(texts):
 async def process_posts(pool, batch_size=32):
     async with pool.acquire() as conn:
         rows = await conn.fetch("""
-            SELECT id, text FROM posts
+            SELECT id, text
+            FROM posts
             WHERE embedded = FALSE
             LIMIT $1
         """, batch_size)
@@ -41,11 +42,19 @@ async def process_posts(pool, batch_size=32):
         if not rows:
             return 0
 
-        vectors = embed([r["text"] for r in rows])
+        texts = [r["text"] or "" for r in rows]
+        vectors = embed(texts)
+
         for r, v in zip(rows, vectors):
             await conn.execute(
-                "UPDATE posts SET embedding=$1, embedded=TRUE WHERE id=$2",
-                v, r["id"]
+                """
+                UPDATE posts
+                SET embedding = $1,
+                    embedded = TRUE
+                WHERE id = $2
+                """,
+                v,
+                r["id"]
             )
 
         return len(rows)

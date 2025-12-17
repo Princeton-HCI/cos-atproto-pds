@@ -43,10 +43,10 @@ async def process_authors(pool, batch_size=16):
             return 0
 
         for r in rows:
-            emb_display_name = embed(r["display_name"] or [""])[0]
-            emb_handle = embed(r["handle"] or [""])[0]
-            emb_description = embed(r["description"] or [""])[0]
-            emb_recent_posts = embed(r["recent_posts"] or [""])[0]
+            emb_display_name = embed(r["display_name"] or [""])[0][0]
+            emb_handle = embed(r["handle"] or [""])[0][0]
+            emb_description = embed(r["description"] or [""])[0][0]
+            emb_recent_posts = embed(r["recent_posts"] or [""])[0][0]
 
             await conn.execute("""
                 UPDATE authors
@@ -55,7 +55,7 @@ async def process_authors(pool, batch_size=16):
                     description_embedding=$3,
                     recent_posts_embedding=$4
                 WHERE id=$5
-            """, emb_display_name, emb_handle, emb_description, emb_posts, r["id"])
+            """, emb_display_name, emb_handle, emb_description, emb_recent_posts, r["id"])
 
         return len(rows)
 

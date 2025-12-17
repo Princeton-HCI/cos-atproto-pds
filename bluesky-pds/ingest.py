@@ -31,14 +31,16 @@ CREATE TABLE IF NOT EXISTS posts (
     cid TEXT,
     text TEXT,
     created_at TIMESTAMP,
+    embedding VECTOR(384),
     raw JSONB,
+    embedded BOOLEAN DEFAULT FALSE,
     author_processed BOOLEAN DEFAULT FALSE
 );
 """
 
 INSERT_POST_SQL = """
-INSERT INTO posts (repo, rkey, cid, text, created_at, raw)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO posts (repo, rkey, cid, text, created_at, embedding, raw)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 ON CONFLICT DO NOTHING;
 """
 

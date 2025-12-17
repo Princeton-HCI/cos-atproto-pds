@@ -55,6 +55,10 @@ async def init_db():
     )
     await conn.execute("CREATE EXTENSION IF NOT EXISTS vector;")
     await conn.execute(CREATE_POSTS_TABLE_SQL)
+    await conn.execute("""
+        CREATE INDEX IF NOT EXISTS posts_created_at_idx
+        ON posts (created_at);
+    """)
     await conn.close()
     logger.info("Database ready.")
 

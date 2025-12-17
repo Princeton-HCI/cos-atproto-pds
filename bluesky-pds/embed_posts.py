@@ -67,7 +67,7 @@ async def process_posts(pool, batch_size=32):
 
         for r in rows:
             text = r["text"] or ""
-            embedding = embed(text)[0]  # [0] gets the first vector (list of floats)
+            embedding = embed(text)[0][0]
             embedding_str = "[" + ",".join(map(str, embedding)) + "]"  # convert to string for pgvector
 
             await conn.execute(

@@ -91,7 +91,13 @@ async def handle_firehose():
 
                     await pool.execute(
                         INSERT_POST_SQL,
-                        repo, commit["rkey"], commit["cid"], text, created_at, json.dumps(record)
+                        repo,
+                        commit["rkey"],
+                        commit["cid"],
+                        text,
+                        created_at,
+                        None,  # embedding not yet calculated
+                        json.dumps(record)
                     )
         except Exception as e:
             logger.error("Firehose error", exc_info=True)

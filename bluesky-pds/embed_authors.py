@@ -51,7 +51,7 @@ def embed(texts):
 
     return vecs.tolist()
 
-async def process_authors(pool, batch_size=48):
+async def process_authors(pool, batch_size=32):
     async with pool.acquire() as conn:
         rows = await conn.fetch("""
             SELECT id, display_name, handle, description, recent_posts

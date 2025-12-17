@@ -26,15 +26,9 @@ TOKENIZER = AutoTokenizer.from_pretrained(
 SESSION = ort.InferenceSession(MODEL_PATH)
 
 def embed(texts):
-    """
-    Embed a list of texts safely.
-    - Handles empty strings
-    - Prevents NaN / Inf vectors
-    """
     if isinstance(texts, str):
         texts = [texts]
 
-    # Ensure no None / empty-only strings
     texts = [t if t and t.strip() else "" for t in texts]
 
     inputs = TOKENIZER(
@@ -48,7 +42,7 @@ def embed(texts):
 
     # Safe normalization
     norms = np.linalg.norm(vecs, axis=1, keepdims=True)
-    norms = np.clip(norms, 1e-12, None)  # avoid divide-by-zero
+    norms = np.clip(norms, 1e-12, None)
     vecs = vecs / norms
 
     return vecs.tolist()
@@ -70,8 +64,7 @@ async def process_posts(pool, batch_size=64):
         if not rows:
             return 0
 
-        texts = [r["text"] for r in rows]
-        vectors = embed(texts)
+        vectors = embed([r["text"] for r in rows])
 
         for r, v in zip(rows, vectors):
             await conn.execute(
@@ -95,14 +88,15 @@ async def main():
         password=DB_PASSWORD,
         database=DB_NAME,
         ssl="require",
-        init=lambda c: c.set_type_codec(
-            "vector",
-            encoder=lambda v: "[" + ",".join(map(str, v)) + "]",
-            schema="public",
-            format="text",
-        ),
         min_size=1,
         max_size=4,
+        init=lambda c: c.set_type_codec(
+            "vector",
+            schema="public",
+            format="text",
+            encoder=lambda v: "[" + ",".join(map(str, v)) + "]",
+            decoder=lambda v: [float(x) for x in v.strip("[]").split(",")],
+        ),
     )
 
     logger.info("Post embedding worker started")

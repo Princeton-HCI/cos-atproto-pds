@@ -22,15 +22,36 @@ MODEL_PATH = "all-MiniLM-L6-v2.onnx"
 TOKENIZER = AutoTokenizer.from_pretrained("sentence-transformers/all-MiniLM-L6-v2")
 SESSION = ort.InferenceSession(MODEL_PATH)
 
+
 def embed(texts):
+    """
+    Embed a list of texts safely.
+    - Handles empty strings
+    - Prevents NaN / Inf vectors
+    """
     if isinstance(texts, str):
         texts = [texts]
-    inputs = TOKENIZER(texts, padding=True, truncation=True, return_tensors="np")
+
+    # Ensure no None / empty-only strings
+    texts = [t if t and t.strip() else "" for t in texts]
+
+    inputs = TOKENIZER(
+        texts,
+        padding=True,
+        truncation=True,
+        return_tensors="np",
+    )
+
     vecs = SESSION.run(None, dict(inputs))[0]
-    vecs /= np.linalg.norm(vecs, axis=1, keepdims=True)
+
+    # Safe normalization
+    norms = np.linalg.norm(vecs, axis=1, keepdims=True)
+    norms = np.clip(norms, 1e-12, None)  # avoid divide-by-zero
+    vecs = vecs / norms
+
     return vecs.tolist()
 
-async def process_authors(pool, batch_size=16):
+async def process_authors(pool, batch_size=32):
     async with pool.acquire() as conn:
         rows = await conn.fetch("""
             SELECT id, display_name, handle, description, recent_posts
@@ -44,9 +65,13 @@ async def process_authors(pool, batch_size=16):
 
         for r in rows:
             emb_display_name = embed(r["display_name"] or "")[0][0]
+            emb_display_name_str = "[" + ",".join(map(str, emb_display_name)) + "]"
             emb_handle = embed(r["handle"] or "")[0][0]
+            emb_handle_str = "[" + ",".join(map(str, emb_handle)) + "]"
             emb_description = embed(r["description"] or "")[0][0]
+            emb_description_str = "[" + ",".join(map(str, emb_description)) + "]"
             emb_recent_posts = embed(r["recent_posts"] or "")[0][0]
+            emb_recent_posts_str = "[" + ",".join(map(str, emb_recent_posts)) + "]"
 
             await conn.execute("""
                 UPDATE authors
@@ -55,7 +80,7 @@ async def process_authors(pool, batch_size=16):
                     description_embedding=$3,
                     recent_posts_embedding=$4
                 WHERE id=$5
-            """, emb_display_name, emb_handle, emb_description, emb_recent_posts, r["id"])
+            """, emb_display_name_str, emb_handle_str, emb_description_str, emb_recent_posts_str, r["id"])
 
         return len(rows)
 

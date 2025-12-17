@@ -64,7 +64,7 @@ async def search_posts(q: str = Query(...)):
 @app.get("/search/authors")
 async def search_authors(q: str = Query(...), use_embedding: bool = Query(False)):
     """
-    Search for authors by display_name, handle, description, or posts_text.
+    Search for authors by display_name, handle, description, or recent_posts.
     Ranking is primarily by fame (followers_count + posts_count).
     Optional: use_embedding=True will rank by embedding similarity first.
     """
@@ -95,7 +95,7 @@ async def search_authors(q: str = Query(...), use_embedding: bool = Query(False)
                     display_name ILIKE $1
                     OR handle ILIKE $1
                     OR description ILIKE $1
-                    OR posts_text ILIKE $1
+                    OR recent_posts ILIKE $1
                 ORDER BY fame_score DESC, updated_at DESC
                 LIMIT 50
                 """,

@@ -4,13 +4,13 @@ This guide walks you through setting up a self-hosted Bluesky PDS that ingests d
 
 ---
 
-## 1. Create a GCP VM
+## 1. Create a GCP PDS VM
 
 **Settings:**
 
 - OS: Ubuntu 24.04 LTS
 - Machine Type: `e2-small`
-- Storage: 40GB
+- Storage: 20GB
 - Enable: HTTP & HTTPS traffic
 
 ---
@@ -23,7 +23,7 @@ This guide walks you through setting up a self-hosted Bluesky PDS that ingests d
    - **Name**: `allow-web`
    - **Targets**: Apply to specific instances (select your VM)
    - **Source IP ranges**: `0.0.0.0/0`
-   - **Protocols and Ports**: `tcp:80,443,8000`
+   - **Protocols and Ports**: `tcp:80,443,5432,8000`
 
 ---
 
@@ -35,42 +35,100 @@ This guide walks you through setting up a self-hosted Bluesky PDS that ingests d
 
 ---
 
-## 4. Create Cloud SQL (PostgreSQL 17)
+## 4. Create a GCP Database VM
 
 **Settings:**
 
-- Edition: Enterprise
-- Region/Zone: Choose close to your VM
-- Configuration:
-  - Storage: 10GB SSD
-  - vCPU: 1
-  - Memory: 1.7 GB
-  - Enable Public IP
-- Add your VM’s external IP to **Authorized Networks**
+- OS: Ubuntu 24.04 LTS
+- Machine Type: `e2-standard-2`
+- Storage: 50GB
+- Enable: HTTP & HTTPS traffic
 
 ---
 
-### Create Database, User, and Password
+### Install Postgres on the VM
 
-1. In the **Cloud SQL console**, go to your new PostgreSQL instance.
-2. Under **Users**, click **Create User Account**:
-   - **Username**: e.g. `pds_user`
-   - **Password**: choose a strong password (you’ll put this in your `.env` later)
-3. Under **Databases**, click **Create Database**:
-   - **Database name**: e.g. `pds_db`
-   - Leave other settings default.
-4. Your instance now has:
-   - Host/IP: `<your-instance-public-ip>`
-   - Database: `pds_db`
-   - User: `pds_user`
-   - Password: `<your-password>`
-5. In Connections, add the VM from earlier with its external IP address to Authorized Networks.
+SSH into the second VM and run the following:
+
+```bash
+sudo apt update
+sudo apt install -y postgresql postgresql-contrib postgresql-16-pgvector
+```
+
+Start and enable the service:
+
+```bash
+sudo systemctl enable postgresql
+sudo systemctl start postgresql
+```
+
+Check status:
+
+```bash
+sudo systemctl status postgresql
+```
+
+---
+
+### Create a Postgres user and database
+
+```bash
+# Switch to postgres user
+sudo -i -u postgres
+psql
+
+# Inside psql, create user with password:
+CREATE USER blueskydbuser WITH PASSWORD <SET A PASSWORD>;
+
+# Promote your user to superuser
+ALTER USER blueskydbuser WITH SUPERUSER;
+
+# Create database owned by this user
+CREATE DATABASE blueskydb OWNER blueskydbuser;
+
+# Grant privileges (optional if user owns the DB)
+GRANT ALL PRIVILEGES ON DATABASE blueskydb TO blueskydbuser;
+
+# Enable vector extension in your database
+CREATE EXTENSION IF NOT EXISTS vector;
+
+\q
+exit
+```
+
+---
+
+### Configure Postgres for external access
+
+By default, Postgres only allows **local connections**. To allow your embedding scripts to connect:
+
+1. Edit **postgresql.conf**:
+
+```bash
+sudo nano /etc/postgresql/16/main/postgresql.conf
+# Listen on all addresses
+listen_addresses = '*'
+```
+
+2. Edit **pg_hba.conf** to allow your VM’s user to connect:
+
+```bash
+sudo nano /etc/postgresql/16/main/pg_hba.conf
+# Add at the end:
+host    all             all             0.0.0.0/0           md5
+```
+
+3. Restart Postgres:
+
+```bash
+sudo systemctl restart postgresql
+```
 
 ---
 
 ### Test Connection from VM
 
-SSH into your VM and install `psql`:
+SSH into your first VM and install `psql`:
 
 ```bash
 sudo apt update
@@ -160,12 +218,26 @@ cd cos-atproto-pds/bluesky-pds
 
 The files included are:
 
-- `debug.py` — for basic connection checks
-- `ingest.py` — for firehose ingestion
-- `prune.py` — to clean older posts out of the Cloud SQL database
-- `api.py` — FastAPI-based search API
+- `debug.py` — for basic database and connectivity checks
+- `ingest.py` — ATProto firehose ingestion (posts)
+- `identify.py` — author discovery and profile aggregation
+- `embed_posts.py` — generates embeddings for posts
+- `embed_authors.py` — generates embeddings for authors
+- `prune.py` — monitors database size and prunes old posts
+- `api.py` — FastAPI-powered search and vector query API
 
-It is imparitive to run each script manually in the order listed above to ensure the service is working properly.
+It is **no longer imperative** to run these scripts manually for normal operation, as they are typically managed via the provided shell scripts.
+
+However, if you do choose to run them manually (for debugging or initial validation), the recommended order is:
+
+1. `ingest.py`
+2. `identify.py`
+3. `embed_posts.py`
+4. `embed_authors.py`
+5. `prune.py`
+6. `api.py`
+
+This order ensures data flows correctly from ingestion → author aggregation → embedding → pruning → API exposure.
 
 Before running them however, update the example .env file in a text editor:
 
@@ -174,11 +246,14 @@ cp .env.example .env
 nano .env
 ```
 
-- `DB_HOST` – The IP (public or private) of your Cloud SQL instance from the setup steps.
-- `DB_PORT` – Usually `5432` for PostgreSQL (set when you created the database).
-- `DB_NAME` – The database name you created in Cloud SQL.
-- `DB_USER` – The database user you created during the DB setup.
-- `DB_PASSWORD` – The password for the DB user you set in the earlier steps.
+- `DB_HOST` – The hostname or IP address of the PostgreSQL server running on your VM (use `127.0.0.1` if Postgres is on the same VM).
+- `DB_PORT` – The PostgreSQL port on the VM (usually `5432` unless changed in `postgresql.conf`).
+- `DB_NAME` – The name of the PostgreSQL database created on the VM.
+- `DB_USER` – The PostgreSQL user/role created on the VM for the application.
+- `DB_PASSWORD` – The password for the PostgreSQL user created on the VM.
+- `PRUNE_DB_THRESHOLD_GB` – The maximum database size (in GB) before the prune script starts deleting old posts.
+- `PRUNE_DELETE_COUNT` – The number of posts to delete per prune cycle once the size threshold is exceeded.
+- `PRUNE_INTERVAL_SEC` – The number of seconds to wait between successive prune checks.
 
 Once all the environment variables are in place, run the four python scripts.
 
@@ -211,17 +286,13 @@ This produces the following files **on the VM filesystem**:
 - `line_plot_times.png`
 - `bell_curves_rates.png`
 
-These images are saved in:
-
-```text
-/home/<user>/cos-atproto-pds/bluesky-pds/
-```
+These images are useful for assessing the efficiencey of the PDS VM and the Bluesky search API.
 
 ---
 
-## 11. Install and Authenticate gcloud CLI (Local Machine)
+## 10. Install and Authenticate gcloud CLI (Local Machine)
 
-You must install and authenticate the **Google Cloud CLI** locally in order to copy files from the VM.
+Since the GCP VMs are headless, to view these images you need to pull them down locally. To do that you must install and authenticate the **Google Cloud CLI** locally.
 
 ---
 
@@ -301,7 +372,7 @@ gcloud compute instances list
 
 ---
 
-## 12. Pull Benchmark Images from VM to Local Machine
+## 11. Pull Benchmark Images from VM to Local Machine
 
 Run these commands **from your local machine** (not the VM).
 
@@ -345,31 +416,66 @@ start bell_curves_rates.png
 
 ---
 
-## 13. Shell Scripts to Manage Services
+Here’s the updated section with the **explicit recommended startup order** added at the end, without changing the existing structure or tone:
 
-The repository also includes shell scripts to perpetually run each service in the background:
+---
 
-- `run_ingest.sh`
-- `run_prune.sh`
-- `run_api.sh`
+## 12. Shell Scripts to Manage Services
 
-Make the scripts executable:
+The repository includes shell scripts to run each long-lived service in the background and automatically restart them if they exit:
+
+- `run_ingest.sh` — ATProto firehose ingestion
+- `run_prune.sh` — database size monitoring and post pruning
+- `run_api.sh` — FastAPI search API
+- `run_identify.sh` — author identification and metadata aggregation
+- `run_embed_posts.sh` — post embedding worker
+- `run_embed_authors.sh` — author embedding worker
+
+Make all scripts executable:
 
 ```bash
 chmod +x run_*.sh
 ```
 
-Run them as needed:
+Start services as needed:
 
 ```bash
 ./run_ingest.sh start
 ./run_prune.sh start
+./run_identify.sh start
+./run_embed_posts.sh start
+./run_embed_authors.sh start
 ./run_api.sh start
 ```
 
----
+Stop a service:
 
-## 14. Set Up Caddy Proxy
+```bash
+./run_<service>.sh stop
+```
+
+Check service status or logs (if supported by the script):
+
+```bash
+./run_<service>.sh status
+```
+
+> 💡 You can run these selectively depending on your workload (for example, disabling embedding workers during ingestion catch-up).
+
+### Recommended startup order
+
+While services can be started independently, the recommended order for a clean start is:
+
+1. `run_ingest.sh` — begin collecting posts
+2. `run_identify.sh` — resolve authors and metadata
+3. `run_embed_posts.sh` — embed ingested posts
+4. `run_embed_authors.sh` — embed author data
+5. `run_prune.sh` — enforce database size limits
+6. `run_api.sh` — expose search and vector endpoints
+
+This ordering ensures data flows correctly from ingestion → enrichment → embedding → pruning → API access.
+
+## 13. Set Up Caddy Proxy
 
 Your PDS likely already uses Caddy via Docker.
 
@@ -428,49 +534,9 @@ You should get results from your ingested posts.
 
 ---
 
-## 16. Create and Save Google Cloud SQL Studio Queries
+## 16. Useful Queries
 
-Access **Cloud SQL Query Editor**:
-
-1. Go to [Google Cloud Console → SQL → Your Instance](https://console.cloud.google.com/sql).
-2. Click **Query Editor** in the left menu.
-3. Select your database from the dropdown.
-
-### 1. Authors vector indexes
-
-**`addAuthorsVectorIndex`**
-
-```sql
-CREATE INDEX IF NOT EXISTS authors_display_name_embedding_idx
-    ON authors USING ivfflat (display_name_embedding vector_l2_ops)
-    WITH (lists = 200);
-
-CREATE INDEX IF NOT EXISTS authors_handle_embedding_idx
-    ON authors USING ivfflat (handle_embedding vector_l2_ops)
-    WITH (lists = 200);
-
-CREATE INDEX IF NOT EXISTS authors_description_embedding_idx
-    ON authors USING ivfflat (description_embedding vector_l2_ops)
-    WITH (lists = 200);
-
-CREATE INDEX IF NOT EXISTS authors_posts_embedding_idx
-    ON authors USING ivfflat (posts_embedding vector_l2_ops)
-    WITH (lists = 200);
-
-ANALYZE authors;
-```
-
-### 2. Posts vector index
-
-**`addPostsVectorIndex`**
-
-```sql
-CREATE INDEX IF NOT EXISTS posts_embedding_idx
-    ON posts USING ivfflat (embedding vector_l2_ops)
-    WITH (lists = 200);
-
-ANALYZE posts;
-```
+Here are some useful
 
 ### 3. Drop tables
 
@@ -537,4 +603,4 @@ You now have a working:
 - Reverse proxy via Caddy
 - Performance benchmarking with visual analysis
 
-You can now build richer services on top of your self-hosted Bluesky data.
+You can now build richer services on top of your self-hosted Bluesky data!

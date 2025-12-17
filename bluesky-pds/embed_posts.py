@@ -65,21 +65,23 @@ async def process_posts(pool, batch_size=32):
         if not rows:
             return 0
 
-        for r in rows:
-            embedding = embed(r["text"] or [""])[0][0]
+        text = r["text"] or ""
+        embedding = embed(text)[0]  # [0] gets the first vector (list of floats)
+        embedding_str = "[" + ",".join(map(str, embedding)) + "]"  # convert to string for pgvector
 
-            await conn.execute(
-                """
-                UPDATE posts
-                SET embedding = $1,
-                    embedded = TRUE
-                WHERE id = $2
-                """,
-                embedding,
-                r["id"]
-            )
-
+        await conn.execute(
+            """
+            UPDATE posts
+            SET embedding = $1,
+                embedded = TRUE
+            WHERE id = $2
+            """,
+            embedding_str,
+            r["id"]
+        )
+        
         return len(rows)
+
 
 async def main():
     pool = await asyncpg.create_pool(

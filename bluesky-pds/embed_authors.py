@@ -67,20 +67,20 @@ async def main():
         password=DB_PASSWORD,
         database=DB_NAME,
         ssl="require",
-        init=lambda c: c.set_type_codec(
-            "vector",
-            encoder=lambda v: "[" + ",".join(map(str, v)) + "]",
-            schema="public",
-            format="text",
-        ),
     )
 
-    while True:
-        n = await process_authors(pool)
-        if n == 0:
-            await asyncio.sleep(5)
-        else:
-            logger.info(f"Embedded {n} authors")
+    logger.info("Author embedding worker started")
 
+    while True:
+        try:
+            n = await process_authors(pool)
+            if n == 0:
+                await asyncio.sleep(2)
+            else:
+                logger.info(f"Embedded {n} authors")
+        except Exception:
+            logger.exception("Embedding loop error")
+            await asyncio.sleep(5)
+            
 if __name__ == "__main__":
     asyncio.run(main())

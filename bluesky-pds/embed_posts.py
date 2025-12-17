@@ -92,8 +92,6 @@ async def main():
         password=DB_PASSWORD,
         database=DB_NAME,
         ssl="require",
-        min_size=1,
-        max_size=4,
     )
 
     logger.info("Post embedding worker started")

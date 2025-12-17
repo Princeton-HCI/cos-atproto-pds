@@ -61,6 +61,7 @@ async def main():
         init=lambda c: c.set_type_codec(
             "vector",
             encoder=lambda v: "[" + ",".join(map(str, v)) + "]",
+            decoder=lambda v: [float(x) for x in v.strip("[]").split(",")],
             schema="public",
             format="text",
         ),

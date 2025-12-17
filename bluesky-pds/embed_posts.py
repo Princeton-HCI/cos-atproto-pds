@@ -53,7 +53,7 @@ def embed(texts):
 
     return vecs.tolist()
 
-async def process_posts(pool, batch_size=128):
+async def process_posts(pool, batch_size=48):
     async with pool.acquire() as conn:
         rows = await conn.fetch("""
             SELECT id, text

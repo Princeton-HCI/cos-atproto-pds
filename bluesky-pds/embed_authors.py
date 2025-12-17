@@ -43,10 +43,10 @@ async def process_authors(pool, batch_size=16):
             return 0
 
         for r in rows:
-            emb_display_name = embed(r["display_name"] or [""])[0][0]
-            emb_handle = embed(r["handle"] or [""])[0][0]
-            emb_description = embed(r["description"] or [""])[0][0]
-            emb_recent_posts = embed(r["recent_posts"] or [""])[0][0]
+            emb_display_name = embed(r["display_name"] or "")[0][0]
+            emb_handle = embed(r["handle"] or "")[0][0]
+            emb_description = embed(r["description"] or "")[0][0]
+            emb_recent_posts = embed(r["recent_posts"] or "")[0][0]
 
             await conn.execute("""
                 UPDATE authors
@@ -81,6 +81,6 @@ async def main():
         except Exception:
             logger.exception("Embedding loop error")
             await asyncio.sleep(5)
-            
+
 if __name__ == "__main__":
     asyncio.run(main())

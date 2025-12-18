@@ -8,11 +8,12 @@ import asyncio
 import time
 from server.models import Feed, FeedSource, FeedCache
 from collections import defaultdict
+import random
 
 CACHE_TTL = 60  # seconds
-RESPONSE_LIMIT = 100
-FEED_LIMIT = 100
-MAX_PER_AUTHOR = 20
+RESPONSE_LIMIT = 100 # number of posts to be received from api response
+FEED_LIMIT = 100 # number of total posts in a feed
+MAX_PER_AUTHOR = 20  # max posts per author in a feed
 
 CUSTOM_API_URL = os.environ.get("CUSTOM_API_URL")
 
@@ -24,7 +25,7 @@ tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_NAME)
 session = ort.InferenceSession(MODEL_PATH, providers=["CPUExecutionProvider"])
 
 def encode_onnx(texts):
-    """Return normalized embedding vectors using the ONNX model."""
+    """Return embedding vectors using the ONNX model."""
     if isinstance(texts, str):
         texts = [texts]
     inputs = tokenizer(texts, padding=True, truncation=True, return_tensors="np")
@@ -35,35 +36,47 @@ def encode_onnx(texts):
     embeddings = embeddings / norms
     return embeddings
 
-# ------------------- HTTP Fetch Helpers -------------------
 
 async def fetch_post_by_identifier(repo: str, rkey: str) -> dict:
     """Return minimal post info (just enough to build a URI)."""
     uri = f"at://{repo}/app.bsky.feed.post/{rkey}"
     return {"uri": uri, "repo": repo, "rkey": rkey}
 
+
 async def fetch_full_post(uri: str) -> dict:
-    """Fetch full post JSON for filtering."""
-    url = f"https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts?uris={uri}"
+    """Fetch full post JSON so keyword filters can work."""
+    url = (
+        "https://public.api.bsky.app/xrpc/"
+        "app.bsky.feed.getPosts"
+        f"?uris={uri}"
+    )
     async with httpx.AsyncClient(timeout=30.0) as client:
         r = await client.get(url)
+
     if r.status_code != 200:
         return {}
+
     posts = r.json().get("posts", [])
     return posts[0] if posts else {}
 
+
 async def fetch_author_posts(actor_did: str, limit: int = RESPONSE_LIMIT) -> list[dict]:
     """Fetch posts from a Bluesky author DID."""
-    url = f"https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor={actor_did}&limit={limit}"
+    url = (
+        "https://public.api.bsky.app/xrpc/"
+        "app.bsky.feed.getAuthorFeed"
+        f"?actor={actor_did}&limit={limit}"
+    )
     async with httpx.AsyncClient(timeout=30.0) as client:
         r = await client.get(url)
+
     if r.status_code != 200:
         print("Author fetch failed:", r.text)
         return []
-    items = r.json().get("feed", [])
 
-    # Concurrently convert URIs to minimal post info
-    tasks = []
+    items = r.json().get("feed", [])
+    results = []
+
     for item in items:
         post = item.get("post")
         if not post:
@@ -75,37 +88,46 @@ async def fetch_author_posts(actor_did: str, limit: int = RESPONSE_LIMIT) -> lis
             _, _, repo, _, rkey = uri.split("/", 4)
         except ValueError:
             continue
-        tasks.append(fetch_post_by_identifier(repo, rkey))
-    return await asyncio.gather(*tasks)
+
+        results.append(await fetch_post_by_identifier(repo, rkey))
+
+    return results
+
 
 async def search_topics(query: str, limit: int = RESPONSE_LIMIT) -> list[dict]:
     """Use vector search to find relevant posts, returning minimal identifiers."""
-    vector = encode_onnx(query).tolist()[0]
+    vector = encode_onnx(query).tolist()[0][0]
     body = json.dumps(vector)
+
     async with httpx.AsyncClient(timeout=30.0) as client:
         r_vector = await client.post(
             f"{CUSTOM_API_URL}/vector/search/posts",
             content=body,
             headers={"Content-Type": "application/json"}
         )
+
     if r_vector.status_code != 200:
         print("Vector search failed:", r_vector.text)
         return []
 
-    # Concurrently convert search results to minimal post info
-    tasks = []
+    results = []
     for post in r_vector.json()[:limit]:
         repo = post.get("repo")
         rkey = post.get("rkey")
         if repo and rkey:
-            tasks.append(fetch_post_by_identifier(repo, rkey))
-    return await asyncio.gather(*tasks)
+            results.append(await fetch_post_by_identifier(repo, rkey))
 
-# ------------------- Filtering -------------------
+    return results
 
+
+# Filtering logic (blacklist plcs + keywords)
 def extract_filters(feed_uri: str):
     """Return sets for quick filtering."""
-    rows = FeedSource.select().where(FeedSource.feed == Feed.get(Feed.uri == feed_uri))
+    rows = (
+        FeedSource
+        .select()
+        .where(FeedSource.feed == Feed.get(Feed.uri == feed_uri))
+    )
     blocked_dids = set()
     banned_keywords = set()
     for r in rows:
@@ -113,63 +135,100 @@ def extract_filters(feed_uri: str):
             blocked_dids.add(r.identifier)
         if r.source_type == "topic_filter":
             banned_keywords.add(r.identifier.lower())
+
     return blocked_dids, banned_keywords
 
 def should_block_post(full_post: dict, blocked_dids: set, banned_keywords: set) -> bool:
     """Return True if post should be filtered out."""
+    # Block authors
     author = full_post.get("author")
-    if author and author.get("did") in blocked_dids:
-        return True
-    text = full_post.get("record", {}).get("text", "").lower()
-    return any(kw in text for kw in banned_keywords)
+    if author:
+        if author.get("did") in blocked_dids:
+            return True
+    # Block keyword-containing posts
+    record = full_post.get("record", {})
+    text = record.get("text", "").lower()
 
-# ------------------- Feed Handler -------------------
+    for kw in banned_keywords:
+        if kw in text:
+            return True
 
+    return False
+
+async def serve_from_cache():
+    row = FeedCache.get_or_none(FeedCache.feed_uri == feed_uri)
+    if row is None:
+        return None
+
+    age = time.time() - row.timestamp
+    if age < CACHE_TTL:
+        return json.loads(row.response_json)
+
+    return None  # stale = ignored
+
+# Feed handler factory
 def make_handler(feed_uri: str):
     async def build_feed(limit=RESPONSE_LIMIT):
-        """Build fresh feed with concurrency."""
-        sources = FeedSource.select().join(Feed).where(Feed.uri == feed_uri)
+        """Build fresh feed skeleton by fetching sources + posts."""
+        sources = (
+            FeedSource
+            .select()
+            .join(Feed)
+            .where(Feed.uri == feed_uri)
+        )
+
+        # Load blacklist rules
         blocked_dids, banned_keywords = extract_filters(feed_uri)
+
         collected = []
+        author_counts = defaultdict(int)
 
-        # Fetch posts concurrently
-        tasks = []
         for src in sources:
+            # Preferences
             if src.source_type == "account_preference":
-                tasks.append(fetch_author_posts(src.identifier, limit))
-            elif src.source_type == "topic_preference":
-                tasks.append(search_topics(src.identifier, limit))
-        results = await asyncio.gather(*tasks)
+                collected.extend(await fetch_author_posts(src.identifier, limit))
 
-        # Flatten results
-        for r in results:
-            collected.extend(r)
+            elif src.source_type == "topic_preference":
+                collected.extend(await search_topics(src.identifier, limit))
+
+            # Filters NOT fetched here — they are applied to results below.
 
         # Deduplicate
         seen = set()
         filtered_posts = []
         author_counts = defaultdict(int)
 
-        # Fetch full posts concurrently
-        full_posts = await asyncio.gather(*[fetch_full_post(p["uri"]) for p in collected])
+        # TODO: Implement ranking logic here if desired
 
-        for p, full_post in zip(collected, full_posts):
+        # Apply filters
+        for p in collected:
+            uri = p["uri"]
+            if uri in seen:
+                continue
+            seen.add(uri)
+
+            full_post = await fetch_full_post(uri)
             if not full_post:
                 continue
-            if p["uri"] in seen:
-                continue
-            seen.add(p["uri"])
+
+            # keyword / account filters
             if should_block_post(full_post, blocked_dids, banned_keywords):
                 continue
+
+            # per-author cap
             author_did = full_post.get("author", {}).get("did")
-            if author_did and author_counts[author_did] >= MAX_PER_AUTHOR:
-                continue
             if author_did:
+                if author_counts[author_did] >= MAX_PER_AUTHOR:
+                    continue
                 author_counts[author_did] += 1
+
             filtered_posts.append(p)
+
             if len(filtered_posts) >= FEED_LIMIT:
                 break
 
+
+        # Format for Bluesky
         feed = {
             "cursor": str(int(time.time())),
             "feed": [{"post": p["uri"]} for p in filtered_posts[:FEED_LIMIT]]
@@ -184,32 +243,48 @@ def make_handler(feed_uri: str):
 
         return feed
 
-    async def serve_from_cache():
-        """Return cached feed if recent."""
+    async def serve_from_cache(limit=10):
+        """Return cached feed if recent, otherwise None."""
         row = FeedCache.get_or_none(FeedCache.feed_uri == feed_uri)
-        if row:
-            age = time.time() - row.timestamp
-            if age < CACHE_TTL:
-                return json.loads(row.response_json)
-            return json.loads(row.response_json)  # stale
-        return None
+        if row is None:
+            return None
+
+        age = time.time() - row.timestamp
+        if age < CACHE_TTL:
+            return json.loads(row.response_json)
+
+        return json.loads(row.response_json)  # stale but still valid
 
     async def handler(cursor="", limit=RESPONSE_LIMIT):
-        if not cursor:
-            snapshot_id = str(int(time.time()))
-            feed = await build_feed(limit)
-            return {"cursor": f"{snapshot_id}:{limit}", "feed": feed["feed"][:limit]}
+        start = int(cursor) if cursor else 0
+        end = start + limit
 
-        snapshot_id, offset = cursor.split(":")
-        offset = int(offset)
-        cached = FeedCache.get_or_none(
-            (FeedCache.feed_uri == feed_uri) & (FeedCache.snapshot_id == snapshot_id)
-        )
-        if not cached:
+        if not cursor:
+            # first page → force rebuild if stale
+            cached = await serve_from_cache()
+            if not cached:
+                cached = await build_feed(limit)
+        else:
+            # pagination → MUST reuse same snapshot
+            cached = FeedCache.get_or_none(FeedCache.feed_uri == feed_uri)
+            if not cached:
+                # fallback safety
+                cached = await build_feed(limit)
+            else:
+                cached = json.loads(cached.response_json)
+
+        feed_items = cached.get("feed", [])
+
+        if start >= len(feed_items):
             return {"cursor": None, "feed": []}
-        feed_items = json.loads(cached.response_json)["feed"]
-        next_offset = offset + limit
-        next_cursor = f"{snapshot_id}:{next_offset}" if next_offset < len(feed_items) else None
-        return {"cursor": next_cursor, "feed": feed_items[offset:next_offset]}
+
+        page = feed_items[start:end]
+
+        next_cursor = str(end) if end < len(feed_items) else None
+
+        return {
+            "cursor": next_cursor,
+            "feed": page,
+        }
 
     return handler

@@ -257,7 +257,10 @@ def make_handler(feed_uri: str):
             start = 0
 
         limit = int(limit)
-        cached = await build_feed(FEED_LIMIT)
+        cached = await serve_from_cache()  # always check TTL
+
+        if not cached:
+            cached = await build_feed(FEED_LIMIT)
 
         feed_items = cached.get("feed", [])
 

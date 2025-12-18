@@ -10,7 +10,7 @@ from server.models import Feed, FeedSource, FeedCache
 from collections import defaultdict
 import random
 
-CACHE_TTL = 60  # seconds
+CACHE_TTL = 0  # seconds
 RESPONSE_LIMIT = 100 # number of posts to be received from api response
 FEED_LIMIT = 500 # number of total posts in a feed
 MAX_PER_AUTHOR = 20 # max posts per author in a feed

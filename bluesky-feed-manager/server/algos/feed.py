@@ -248,15 +248,7 @@ def make_handler(feed_uri: str):
 
     async def serve_from_cache(limit=10):
         """Return cached feed if recent, otherwise None."""
-        row = FeedCache.get_or_none(FeedCache.feed_uri == feed_uri)
-        if row is None:
-            return None
-
-        age = time.time() - row.timestamp
-        if age < CACHE_TTL:
-            return json.loads(row.response_json)
-
-        return json.loads(row.response_json)  # stale but still valid
+        return None
 
     async def handler(cursor="", limit=RESPONSE_LIMIT):
         start = int(cursor) if cursor else 0

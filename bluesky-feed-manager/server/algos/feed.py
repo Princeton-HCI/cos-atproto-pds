@@ -9,8 +9,8 @@ import time
 from server.models import Feed, FeedSource, FeedCache
 
 CACHE_TTL = 60  # seconds
-RESPONSE_LIMIT = 20 # number of posts to be received from api response
-FEED_LIMIT = 50 # number of total posts in a feed
+RESPONSE_LIMIT = 40 # number of posts to be received from api response
+FEED_LIMIT = 100 # number of total posts in a feed
 
 CUSTOM_API_URL = os.environ.get("CUSTOM_API_URL")
 
@@ -47,7 +47,7 @@ async def fetch_full_post(uri: str) -> dict:
         "app.bsky.feed.getPosts"
         f"?uris={uri}"
     )
-    async with httpx.AsyncClient(timeout=20.0) as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         r = await client.get(url)
 
     if r.status_code != 200:

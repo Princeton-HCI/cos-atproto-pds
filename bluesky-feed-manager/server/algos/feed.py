@@ -249,9 +249,13 @@ def make_handler(feed_uri: str):
 
         return json.loads(row.response_json)  # stale but still valid
 
-    async def handler(cursor="0", limit=RESPONSE_LIMIT):
-        # Convert cursor to int for calculations
-        start = int(cursor)
+    async def handler(cursor=None, limit=RESPONSE_LIMIT):
+        # Normalize cursor: None or invalid -> 0
+        try:
+            start = int(cursor) if cursor is not None else 0
+        except (ValueError, TypeError):
+            start = 0
+
         end = start + int(limit)
 
         cached = await serve_from_cache()  # always check TTL
@@ -261,14 +265,11 @@ def make_handler(feed_uri: str):
 
         feed_items = cached.get("feed", [])
 
-        # If start is beyond feed length, return empty page
         if start >= len(feed_items):
             return {"cursor": "0", "feed": []}
 
-        # Slice feed items using integer indices
         page = feed_items[start:end]
 
-        # Next cursor as string
         next_cursor = str(end) if end < len(feed_items) else "0"
 
         return {

@@ -10,10 +10,10 @@ from server.models import Feed, FeedSource, FeedCache
 from collections import defaultdict
 import random
 
-CACHE_TTL = 10  # seconds
-RESPONSE_LIMIT = 40 # number of posts to be received from api response
-FEED_LIMIT = 100 # number of total posts in a feed
-MAX_PER_AUTHOR = 5 # max posts per author in a feed
+CACHE_TTL = 60  # seconds
+RESPONSE_LIMIT = 100 # number of posts to be received from api response
+FEED_LIMIT = 500 # number of total posts in a feed
+MAX_PER_AUTHOR = 20 # max posts per author in a feed
 
 CUSTOM_API_URL = os.environ.get("CUSTOM_API_URL")
 
@@ -209,6 +209,8 @@ def make_handler(feed_uri: str):
             if p["uri"] in seen:
                 continue
             seen.add(p["uri"])
+
+            print(full_post)
 
             if should_block_post(full_post, blocked_dids, banned_keywords):
                 continue

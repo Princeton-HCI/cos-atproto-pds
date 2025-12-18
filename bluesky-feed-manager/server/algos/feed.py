@@ -250,9 +250,9 @@ def make_handler(feed_uri: str):
         return json.loads(row.response_json)  # stale but still valid
 
     async def handler(cursor=None, limit=RESPONSE_LIMIT):
-        # Normalize cursor: None or invalid -> 0
+        # Normalize cursor to integer
         try:
-            start = int(cursor) if cursor is not None else 0
+            start = int(cursor)
         except (ValueError, TypeError):
             start = 0
 
@@ -269,7 +269,7 @@ def make_handler(feed_uri: str):
 
         # Compute next cursor
         if start + limit >= len(feed_items):
-            next_cursor = None  # end of feed
+            next_cursor = "0"  # must always be a string
         else:
             next_cursor = str(start + limit)
 
@@ -277,6 +277,5 @@ def make_handler(feed_uri: str):
             "cursor": next_cursor,
             "feed": page,
         }
-
 
     return handler

@@ -254,6 +254,9 @@ def make_handler(feed_uri: str):
             print("Background refresh failed:", e)
 
     async def handler(cursor="", limit=RESPONSE_LIMIT):
+        start = int(cursor) if cursor else 0
+        end = start + limit
+
         # Try cached version first
         cached = await serve_from_cache(limit)
 
@@ -262,10 +265,20 @@ def make_handler(feed_uri: str):
             row = FeedCache.get_or_none(FeedCache.feed_uri == feed_uri)
             if time.time() - row.timestamp >= CACHE_TTL:
                 asyncio.create_task(background_refresh(limit))
-            return cached
+            posts = cached["feed"][start:end]
+            next_cursor = str(end) if end < len(cached["feed"]) else None
+            return {
+                "cursor": next_cursor,
+                "feed": posts,
+            }
 
         # If there's no cache build immediately
         fresh = await build_feed(limit)
-        return fresh
+        posts = fresh["feed"][start:end]
+        next_cursor = str(end) if end < len(fresh["feed"]) else None
+        return {
+            "cursor": next_cursor,
+            "feed": posts,
+        }
 
     return handler

@@ -10,7 +10,7 @@ def create_feed(handle, password, hostname, record_name, display_name="", descri
     client = Client()
     client.login(handle, password)
 
-    feed_did = "did:web:" + hostname
+    feed_did = "did:web:" + hostname.split("/")[0]
     print(f"[Feed Creation] Creating feed for DID: {feed_did}")
 
     avatar_blob = None

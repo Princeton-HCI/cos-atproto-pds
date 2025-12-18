@@ -176,12 +176,13 @@ def make_handler(feed_uri: str):
         tasks = []
         for src in sources:
             if src.source_type == "account_preference":
-                tasks.append(fetch_author_posts(src.identifier, limit))
+                tasks.append(asyncio.create_task(fetch_author_posts(src.identifier, limit)))
             elif src.source_type == "topic_preference":
-                tasks.append(search_topics(src.identifier, limit))
+                tasks.append(asyncio.create_task(search_topics(src.identifier, limit)))
+
+        print("Created tasks:", tasks)
         results = await asyncio.gather(*tasks)
 
-        print(tasks)
 
         for r in results:
             collected.extend(r)

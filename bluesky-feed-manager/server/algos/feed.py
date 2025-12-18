@@ -246,39 +246,37 @@ def make_handler(feed_uri: str):
 
         return json.loads(row.response_json)  # stale but still valid
 
-    async def background_refresh(limit=RESPONSE_LIMIT):
-        """Refresh cache in the background (non-blocking)."""
-        try:
-            await build_feed(limit)
-        except Exception as e:
-            print("Background refresh failed:", e)
-
     async def handler(cursor="", limit=RESPONSE_LIMIT):
         start = int(cursor) if cursor else 0
         end = start + limit
 
-        # Try cached version first
         cached = await serve_from_cache(limit)
+        if not cached:
+            cached = await build_feed(limit)
 
-        if cached:
-            # If cached but stale then refresh in background
-            row = FeedCache.get_or_none(FeedCache.feed_uri == feed_uri)
-            if time.time() - row.timestamp >= CACHE_TTL:
-                asyncio.create_task(background_refresh(limit))
-            posts = cached["feed"][start:end]
-            next_cursor = str(end) if end < len(cached["feed"]) else None
+        feed_items = cached.get("feed", [])
+
+        # If cursor is out of range, end feed cleanly
+        if start >= len(feed_items):
             return {
-                "cursor": next_cursor,
-                "feed": posts,
+                "cursor": None,
+                "feed": [],
             }
 
-        # If there's no cache build immediately
-        fresh = await build_feed(limit)
-        posts = fresh["feed"][start:end]
-        next_cursor = str(end) if end < len(fresh["feed"]) else None
+        page = feed_items[start:end]
+
+        # If this page is empty, stop pagination
+        if not page:
+            return {
+                "cursor": None,
+                "feed": [],
+            }
+
+        next_cursor = str(end) if end < len(feed_items) else None
+
         return {
             "cursor": next_cursor,
-            "feed": posts,
+            "feed": page,
         }
 
     return handler

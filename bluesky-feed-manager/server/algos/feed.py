@@ -183,50 +183,53 @@ def make_handler(feed_uri: str):
         collected = []
         author_counts = defaultdict(int)
 
+        # Fetch posts concurrently
+        tasks = []
         for src in sources:
-            # Preferences
             if src.source_type == "account_preference":
-                collected.extend(await fetch_author_posts(src.identifier, limit))
-
+                tasks.append(fetch_author_posts(src.identifier, limit))
             elif src.source_type == "topic_preference":
-                collected.extend(await search_topics(src.identifier, limit))
+                tasks.append(search_topics(src.identifier, limit))
+        results = await asyncio.gather(*tasks)
 
-            # Filters NOT fetched here — they are applied to results below.
+        for r in results:
+            collected.extend(r)
 
         # Deduplicate
         seen = set()
         filtered_posts = []
         author_counts = defaultdict(int)
 
-        # TODO: Implement ranking logic here if desired
+        # Fetch full posts concurrently
+        full_posts = await asyncio.gather(*[fetch_full_post(p["uri"]) for p in collected])
 
-        # Apply filters
-        for p in collected:
-            uri = p["uri"]
-            if uri in seen:
-                continue
-            seen.add(uri)
-
-            full_post = await fetch_full_post(uri)
+        for p, full_post in zip(collected, full_posts):
             if not full_post:
                 continue
+            if p["uri"] in seen:
+                continue
+            seen.add(p["uri"])
 
-            # keyword / account filters
             if should_block_post(full_post, blocked_dids, banned_keywords):
                 continue
 
-            # per-author cap
             author_did = full_post.get("author", {}).get("did")
             if author_did:
                 if author_counts[author_did] >= MAX_PER_AUTHOR:
                     continue
                 author_counts[author_did] += 1
 
-            filtered_posts.append(p)
+            # Store full_post with URI for sorting
+            filtered_posts.append({
+                "uri": p["uri"],
+                "createdAt": full_post.get("record", {}).get("createdAt", 0)
+            })
 
             if len(filtered_posts) >= FEED_LIMIT:
                 break
 
+        # Sort posts by recency (newest first)
+        filtered_posts.sort(key=lambda x: x["createdAt"], reverse=True)
 
         # Format for Bluesky
         feed = {

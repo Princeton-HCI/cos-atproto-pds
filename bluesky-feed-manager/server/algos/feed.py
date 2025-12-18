@@ -205,12 +205,13 @@ def make_handler(feed_uri: str):
 
         for p, full_post in zip(collected, full_posts):
             if not full_post:
+                print(f"Failed to fetch full post for URI: {p['uri']}")
                 continue
             if p["uri"] in seen:
                 continue
-            seen.add(p["uri"])
 
-            print(full_post)
+            print("Fetched full post:", full_post)
+
 
             if should_block_post(full_post, blocked_dids, banned_keywords):
                 continue

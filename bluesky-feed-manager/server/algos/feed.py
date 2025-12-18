@@ -10,10 +10,10 @@ from server.models import Feed, FeedSource, FeedCache
 from collections import defaultdict
 import random
 
-CACHE_TTL = 0  # seconds
+CACHE_TTL = 60  # seconds
 RESPONSE_LIMIT = 100 # number of posts to be received from api response
 FEED_LIMIT = 500 # number of total posts in a feed
-MAX_PER_AUTHOR = 5 # max posts per author in a feed
+MAX_PER_AUTHOR = 15 # max posts per author in a feed
 
 CUSTOM_API_URL = os.environ.get("CUSTOM_API_URL")
 

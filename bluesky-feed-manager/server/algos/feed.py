@@ -256,25 +256,27 @@ def make_handler(feed_uri: str):
         except (ValueError, TypeError):
             start = 0
 
-        end = start + int(limit)
-
+        limit = int(limit)
         cached = await serve_from_cache()  # always check TTL
 
         if not cached:
-            cached = await build_feed(limit)
+            cached = await build_feed(FEED_LIMIT)
 
         feed_items = cached.get("feed", [])
 
-        if start >= len(feed_items):
-            return {"cursor": "0", "feed": []}
+        # Slice the feed according to cursor + limit
+        page = feed_items[start:start + limit]
 
-        page = feed_items[start:end]
-
-        next_cursor = str(end) if end < len(feed_items) else "0"
+        # Compute next cursor
+        if start + limit >= len(feed_items):
+            next_cursor = None  # end of feed
+        else:
+            next_cursor = str(start + limit)
 
         return {
             "cursor": next_cursor,
             "feed": page,
         }
+
 
     return handler

@@ -11,6 +11,7 @@ def create_feed(handle, password, hostname, record_name, display_name="", descri
     client.login(handle, password)
 
     feed_did = "did:web:" + hostname
+    print(f"[Feed Creation] Creating feed for DID: {feed_did}")
 
     avatar_blob = None
     if avatar_path and os.path.exists(avatar_path):

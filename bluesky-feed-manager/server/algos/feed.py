@@ -101,7 +101,7 @@ async def search_topics(query: str, limit: int = RESPONSE_LIMIT) -> list[dict]:
 
     async with httpx.AsyncClient(timeout=60.0) as client:
         r_vector = await client.post(
-            f"{CUSTOM_API_URL}/vector/search/posts",
+            f"{CUSTOM_API_URL}vector/search/posts",
             content=body,
             headers={"Content-Type": "application/json"}
         )

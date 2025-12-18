@@ -265,19 +265,10 @@ def make_handler(feed_uri: str):
         start = int(cursor) if cursor else 0
         end = start + limit
 
-        if not cursor:
-            # first page → force rebuild if stale
-            cached = await serve_from_cache()
-            if not cached:
-                cached = await build_feed(limit)
-        else:
-            # pagination → MUST reuse same snapshot
-            cached = FeedCache.get_or_none(FeedCache.feed_uri == feed_uri)
-            if not cached:
-                # fallback safety
-                cached = await build_feed(limit)
-            else:
-                cached = json.loads(cached.response_json)
+        cached = await serve_from_cache()  # always check TTL
+
+        if not cached:
+            cached = await build_feed(limit)
 
         feed_items = cached.get("feed", [])
 

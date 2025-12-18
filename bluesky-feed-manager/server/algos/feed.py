@@ -251,7 +251,7 @@ def make_handler(feed_uri: str):
 
     async def handler(cursor="0", limit=RESPONSE_LIMIT):
         start = str(cursor) if cursor else "0"
-        end = start + limit
+        end = str(int(start) + int(limit))
 
         cached = await serve_from_cache()  # always check TTL
 

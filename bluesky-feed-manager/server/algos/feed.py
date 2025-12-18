@@ -254,37 +254,44 @@ def make_handler(feed_uri: str):
             return json.loads(row.response_json)
 
         return json.loads(row.response_json)  # stale but still valid
-
+    
     async def handler(cursor="", limit=RESPONSE_LIMIT):
-        start = int(cursor) if cursor else 0
-        end = start + limit
-
         if not cursor:
-            # first page → force rebuild if stale
-            cached = await serve_from_cache()
-            if not cached:
-                cached = await build_feed(limit)
-        else:
-            # pagination → MUST reuse same snapshot
-            cached = FeedCache.get_or_none(FeedCache.feed_uri == feed_uri)
-            if not cached:
-                # fallback safety
-                cached = await build_feed(limit)
-            else:
-                cached = json.loads(cached.response_json)
+            # 🔥 NEW SNAPSHOT
+            snapshot_id = str(int(time.time()))
+            feed = await build_feed(limit)
 
-        feed_items = cached.get("feed", [])
+            # overwrite cursor
+            return {
+                "cursor": f"{snapshot_id}:{limit}",
+                "feed": feed["feed"][:limit],
+            }
 
-        if start >= len(feed_items):
+        # pagination
+        snapshot_id, offset = cursor.split(":")
+        offset = int(offset)
+
+        cached = FeedCache.get_or_none(
+            (FeedCache.feed_uri == feed_uri) &
+            (FeedCache.snapshot_id == snapshot_id)
+        )
+
+        if not cached:
+            # snapshot expired or unknown
             return {"cursor": None, "feed": []}
 
-        page = feed_items[start:end]
+        feed_items = json.loads(cached.response_json)["feed"]
 
-        next_cursor = str(end) if end < len(feed_items) else None
+        next_offset = offset + limit
+        next_cursor = (
+            f"{snapshot_id}:{next_offset}"
+            if next_offset < len(feed_items)
+            else None
+        )
 
         return {
             "cursor": next_cursor,
-            "feed": page,
+            "feed": feed_items[offset:next_offset],
         }
 
     return handler

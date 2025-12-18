@@ -224,7 +224,7 @@ def make_handler(feed_uri: str):
 
         # Format for Bluesky
         feed = {
-            "cursor": 0,
+            "cursor": "0",
             "feed": [{"post": p["uri"]} for p in filtered_posts[:FEED_LIMIT]]
         }
 
@@ -249,8 +249,8 @@ def make_handler(feed_uri: str):
 
         return json.loads(row.response_json)  # stale but still valid
 
-    async def handler(cursor=0, limit=RESPONSE_LIMIT):
-        start = int(cursor) if cursor else 0
+    async def handler(cursor="0", limit=RESPONSE_LIMIT):
+        start = str(cursor) if cursor else "0"
         end = start + limit
 
         cached = await serve_from_cache()  # always check TTL
@@ -261,11 +261,11 @@ def make_handler(feed_uri: str):
         feed_items = cached.get("feed", [])
 
         if start >= len(feed_items):
-            return {"cursor": 0, "feed": []}
+            return {"cursor": "0", "feed": []}
 
         page = feed_items[start:end]
 
-        next_cursor = str(end) if end < len(feed_items) else 0
+        next_cursor = str(end) if end < len(feed_items) else "0"
 
         return {
             "cursor": next_cursor,

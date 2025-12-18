@@ -257,7 +257,6 @@ def make_handler(feed_uri: str):
     
     async def handler(cursor="", limit=RESPONSE_LIMIT):
         if not cursor:
-            # 🔥 NEW SNAPSHOT
             snapshot_id = str(int(time.time()))
             feed = await build_feed(limit)
 

@@ -11,8 +11,8 @@ HOSTNAME = os.environ.get("HOSTNAME")
 if not HOSTNAME:
     raise RuntimeError('You must set "HOSTNAME" in your .env file.')
 
-# DID for this service; defaults to did:web if not provided
-SERVICE_DID = "did:plc:s7vox5mkocey4jsf2cvaaptw" or os.environ.get("SERVICE_DID") or f"did:web:{HOSTNAME}"
+# DID for this service
+SERVICE_DID = f"did:web:{HOSTNAME}"
 
 # Optional global flags
 def _get_bool_env_var(value: str) -> bool:

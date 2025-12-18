@@ -197,7 +197,6 @@ def make_handler(feed_uri: str):
         seen = set()
         filtered_posts = []
         author_counts = defaultdict(int)
-        random.shuffle(collected)  # mix results for variety
 
         # TODO: Implement ranking logic here if desired
 

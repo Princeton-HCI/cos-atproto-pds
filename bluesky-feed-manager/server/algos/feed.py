@@ -50,7 +50,7 @@ async def fetch_full_post(uri: str) -> dict:
         "app.bsky.feed.getPosts"
         f"?uris={uri}"
     )
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=60.0) as client:
         r = await client.get(url)
 
     if r.status_code != 200:
@@ -67,7 +67,7 @@ async def fetch_author_posts(actor_did: str, limit: int = RESPONSE_LIMIT) -> lis
         "app.bsky.feed.getAuthorFeed"
         f"?actor={actor_did}&limit={limit}"
     )
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=60.0) as client:
         r = await client.get(url)
 
     if r.status_code != 200:
@@ -99,7 +99,7 @@ async def search_topics(query: str, limit: int = RESPONSE_LIMIT) -> list[dict]:
     vector = encode_onnx(query).tolist()[0][0]
     body = json.dumps(vector)
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=60.0) as client:
         r_vector = await client.post(
             f"{CUSTOM_API_URL}/vector/search/posts",
             content=body,
@@ -166,7 +166,9 @@ def make_handler(feed_uri: str):
             .where(Feed.uri == feed_uri)
         )
 
+        # Load blacklist rules
         blocked_dids, banned_keywords = extract_filters(feed_uri)
+
         collected = []
         author_counts = defaultdict(int)
 
@@ -182,16 +184,22 @@ def make_handler(feed_uri: str):
         for r in results:
             collected.extend(r)
 
+        # Deduplicate
         seen = set()
         filtered_posts = []
+        author_counts = defaultdict(int)
 
+        # Fetch full posts concurrently
         full_posts = await asyncio.gather(*[fetch_full_post(p["uri"]) for p in collected])
 
         for p, full_post in zip(collected, full_posts):
-            if not full_post or p["uri"] in seen:
+            if not full_post:
+                print(f"Failed to fetch full post for URI: {p['uri']}")
                 continue
+            if p["uri"] in seen:
+                continue
+
             print("Fetched full post:", full_post)
-            seen.add(p["uri"])
 
             if should_block_post(full_post, blocked_dids, banned_keywords):
                 continue
@@ -202,6 +210,7 @@ def make_handler(feed_uri: str):
                     continue
                 author_counts[author_did] += 1
 
+            # Store full_post with URI for sorting
             filtered_posts.append({
                 "uri": p["uri"],
                 "createdAt": full_post.get("record", {}).get("createdAt", 0)
@@ -210,27 +219,53 @@ def make_handler(feed_uri: str):
             if len(filtered_posts) >= FEED_LIMIT:
                 break
 
+        # Sort posts by recency (newest first)
         filtered_posts.sort(key=lambda x: x["createdAt"], reverse=True)
 
+        # Format for Bluesky
         feed = {
             "cursor": str(int(time.time())),
             "feed": [{"post": p["uri"]} for p in filtered_posts[:FEED_LIMIT]]
         }
 
+        # Save to SQLite
+        FeedCache.insert(
+            feed_uri=feed_uri,
+            response_json=json.dumps(feed),
+            timestamp=int(time.time())
+        ).on_conflict_replace().execute()
+
         return feed
+
+    async def serve_from_cache(limit=10):
+        """Return cached feed if recent, otherwise None."""
+        row = FeedCache.get_or_none(FeedCache.feed_uri == feed_uri)
+        if row is None:
+            return None
+
+        age = time.time() - row.timestamp
+        print(f"Cache age for {feed_uri}: {age} seconds")
+        if age < CACHE_TTL:
+            return json.loads(row.response_json)
+
+        return json.loads(row.response_json)  # stale but still valid
 
     async def handler(cursor="", limit=RESPONSE_LIMIT):
         start = int(cursor) if cursor else 0
         end = start + limit
 
-        # Always build fresh feed
-        feed = await build_feed(limit)
-        feed_items = feed.get("feed", [])
+        cached = await serve_from_cache()  # always check TTL
+
+        if not cached:
+            cached = await build_feed(limit)
+
+        feed_items = cached.get("feed", [])
 
         if start >= len(feed_items):
             return {"cursor": None, "feed": []}
 
         page = feed_items[start:end]
+
         next_cursor = str(end) if end < len(feed_items) else None
 
         return {

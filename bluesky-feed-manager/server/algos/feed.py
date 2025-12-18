@@ -201,7 +201,6 @@ def make_handler(feed_uri: str):
 
             print("Fetched full post:", full_post)
 
-
             if should_block_post(full_post, blocked_dids, banned_keywords):
                 continue
 
@@ -245,6 +244,7 @@ def make_handler(feed_uri: str):
             return None
 
         age = time.time() - row.timestamp
+        print(f"Cache age for {feed_uri}: {age} seconds")
         if age < CACHE_TTL:
             return json.loads(row.response_json)
 

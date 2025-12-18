@@ -7,10 +7,13 @@ from transformers import AutoTokenizer
 import asyncio
 import time
 from server.models import Feed, FeedSource, FeedCache
+from collections import defaultdict
+import random
 
 CACHE_TTL = 60  # seconds
-RESPONSE_LIMIT = 3 # number of posts to be received from api response
+RESPONSE_LIMIT = 40 # number of posts to be received from api response
 FEED_LIMIT = 100 # number of total posts in a feed
+MAX_PER_AUTHOR = 3  # max posts per author in a feed
 
 CUSTOM_API_URL = os.environ.get("CUSTOM_API_URL")
 
@@ -168,6 +171,7 @@ def make_handler(feed_uri: str):
         blocked_dids, banned_keywords = extract_filters(feed_uri)
 
         collected = []
+        author_counts = defaultdict(int)
 
         for src in sources:
             # Preferences
@@ -182,6 +186,10 @@ def make_handler(feed_uri: str):
         # Deduplicate
         seen = set()
         filtered_posts = []
+        author_counts = defaultdict(int)
+        random.shuffle(collected)  # mix results for variety
+
+        # TODO: Implement ranking logic here if desired
 
         # Apply filters
         for p in collected:
@@ -194,14 +202,22 @@ def make_handler(feed_uri: str):
             if not full_post:
                 continue
 
-            # apply filters
+            # keyword / account filters
             if should_block_post(full_post, blocked_dids, banned_keywords):
                 continue
+
+            # per-author cap
+            author_did = full_post.get("author", {}).get("did")
+            if author_did:
+                if author_counts[author_did] >= MAX_PER_AUTHOR:
+                    continue
+                author_counts[author_did] += 1
 
             filtered_posts.append(p)
 
             if len(filtered_posts) >= FEED_LIMIT:
                 break
+
 
         # Format for Bluesky
         feed = {

@@ -181,6 +181,8 @@ def make_handler(feed_uri: str):
                 tasks.append(search_topics(src.identifier, limit))
         results = await asyncio.gather(*tasks)
 
+        print(tasks)
+
         for r in results:
             collected.extend(r)
 
@@ -244,7 +246,6 @@ def make_handler(feed_uri: str):
             return None
 
         age = time.time() - row.timestamp
-        print(f"Cache age for {feed_uri}: {age} seconds")
         if age < CACHE_TTL:
             return json.loads(row.response_json)
 

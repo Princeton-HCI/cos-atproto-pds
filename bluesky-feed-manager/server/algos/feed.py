@@ -155,17 +155,6 @@ def should_block_post(full_post: dict, blocked_dids: set, banned_keywords: set) 
 
     return False
 
-async def serve_from_cache():
-    row = FeedCache.get_or_none(FeedCache.feed_uri == feed_uri)
-    if row is None:
-        return None
-
-    age = time.time() - row.timestamp
-    if age < CACHE_TTL:
-        return json.loads(row.response_json)
-
-    return None  # stale = ignored
-
 # Feed handler factory
 def make_handler(feed_uri: str):
     async def build_feed(limit=RESPONSE_LIMIT):

@@ -177,8 +177,8 @@ def make_handler(feed_uri: str):
         for src in sources:
             if src.source_type == "account_preference":
                 tasks.append(fetch_author_posts(src.identifier, limit))
-            elif src.source_type == "topic_preference":
-                tasks.append(search_topics(src.identifier, limit))
+            # elif src.source_type == "topic_preference":
+            #     tasks.append(search_topics(src.identifier, limit))
         results = await asyncio.gather(*tasks)
 
         for r in results:

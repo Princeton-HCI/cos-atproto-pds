@@ -24,17 +24,17 @@ TOKENIZER_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_NAME)
 session = ort.InferenceSession(MODEL_PATH, providers=["CPUExecutionProvider"])
 
-# def encode_onnx(texts):
-#     """Return embedding vectors using the ONNX model."""
-#     if isinstance(texts, str):
-#         texts = [texts]
-#     inputs = tokenizer(texts, padding=True, truncation=True, return_tensors="np")
-#     outputs = session.run(None, dict(inputs))
-#     embeddings = outputs[0]
-#     norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
-#     norms[norms == 0] = 1
-#     embeddings = embeddings / norms
-#     return embeddings
+def encode_onnx(texts):
+    """Return embedding vectors using the ONNX model."""
+    if isinstance(texts, str):
+        texts = [texts]
+    inputs = tokenizer(texts, padding=True, truncation=True, return_tensors="np")
+    outputs = session.run(None, dict(inputs))
+    embeddings = outputs[0]
+    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+    norms[norms == 0] = 1
+    embeddings = embeddings / norms
+    return embeddings
 
 
 async def fetch_post_by_identifier(repo: str, rkey: str) -> dict:
@@ -181,8 +181,6 @@ def make_handler(feed_uri: str):
             #     tasks.append(search_topics(src.identifier, limit))
         results = await asyncio.gather(*tasks)
 
-        print(tasks)
-
         for r in results:
             collected.extend(r)
 
@@ -239,7 +237,7 @@ def make_handler(feed_uri: str):
 
         return feed
 
-    async def serve_from_cache():
+    async def serve_from_cache(limit=10):
         """Return cached feed if recent, otherwise None."""
         row = FeedCache.get_or_none(FeedCache.feed_uri == feed_uri)
         if row is None:

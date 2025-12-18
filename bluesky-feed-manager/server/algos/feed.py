@@ -155,6 +155,16 @@ def should_block_post(full_post: dict, blocked_dids: set, banned_keywords: set) 
 
     return False
 
+async def serve_from_cache():
+    row = FeedCache.get_or_none(FeedCache.feed_uri == feed_uri)
+    if row is None:
+        return None
+
+    age = time.time() - row.timestamp
+    if age < CACHE_TTL:
+        return json.loads(row.response_json)
+
+    return None  # stale = ignored
 
 # Feed handler factory
 def make_handler(feed_uri: str):
@@ -250,27 +260,26 @@ def make_handler(feed_uri: str):
         start = int(cursor) if cursor else 0
         end = start + limit
 
-        cached = await serve_from_cache(limit)
-        if not cached:
-            cached = await build_feed(limit)
+        if not cursor:
+            # first page → force rebuild if stale
+            cached = await serve_from_cache()
+            if not cached:
+                cached = await build_feed(limit)
+        else:
+            # pagination → MUST reuse same snapshot
+            cached = FeedCache.get_or_none(FeedCache.feed_uri == feed_uri)
+            if not cached:
+                # fallback safety
+                cached = await build_feed(limit)
+            else:
+                cached = json.loads(cached.response_json)
 
         feed_items = cached.get("feed", [])
 
-        # If cursor is out of range, end feed cleanly
         if start >= len(feed_items):
-            return {
-                "cursor": None,
-                "feed": [],
-            }
+            return {"cursor": None, "feed": []}
 
         page = feed_items[start:end]
-
-        # If this page is empty, stop pagination
-        if not page:
-            return {
-                "cursor": None,
-                "feed": [],
-            }
 
         next_cursor = str(end) if end < len(feed_items) else None
 

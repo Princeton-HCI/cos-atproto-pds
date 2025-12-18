@@ -261,11 +261,11 @@ def make_handler(feed_uri: str):
         feed_items = cached.get("feed", [])
 
         if start >= len(feed_items):
-            return {"cursor": None, "feed": []}
+            return {"cursor": "", "feed": []}
 
         page = feed_items[start:end]
 
-        next_cursor = str(end) if end < len(feed_items) else None
+        next_cursor = str(end) if end < len(feed_items) else ""
 
         return {
             "cursor": next_cursor,

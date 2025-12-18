@@ -9,7 +9,7 @@ import time
 from server.models import Feed, FeedSource, FeedCache
 
 CACHE_TTL = 60  # seconds
-RESPONSE_LIMIT = 40 # number of posts to be received from api response
+RESPONSE_LIMIT = 3 # number of posts to be received from api response
 FEED_LIMIT = 100 # number of total posts in a feed
 
 CUSTOM_API_URL = os.environ.get("CUSTOM_API_URL")

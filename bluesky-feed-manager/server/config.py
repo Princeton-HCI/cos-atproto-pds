@@ -12,7 +12,7 @@ if not HOSTNAME:
     raise RuntimeError('You must set "HOSTNAME" in your .env file.')
 
 # DID for this service
-config.SERVICE_DID = "did:web:feeds.princetonhci.social"
+SERVICE_DID = "did:web:feeds.princetonhci.social"
 
 # Optional global flags
 def _get_bool_env_var(value: str) -> bool:

@@ -9,6 +9,8 @@ import time
 from server.models import Feed, FeedSource, FeedCache
 from collections import defaultdict
 import random
+import sys
+import logging
 
 CACHE_TTL = 60  # seconds
 RESPONSE_LIMIT = 100 # number of posts to be received from api response
@@ -16,6 +18,8 @@ FEED_LIMIT = 500 # number of total posts in a feed
 MAX_PER_AUTHOR = 15 # max posts per author in a feed
 
 CUSTOM_API_URL = os.environ.get("CUSTOM_API_URL")
+
+logger = logging.getLogger(__name__)
 
 # ONNX model setup
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "all-MiniLM-L6-v2.onnx")
@@ -166,6 +170,8 @@ def make_handler(feed_uri: str):
             .where(Feed.uri == feed_uri)
         )
 
+        logger.info("Sources fetched:", list(sources), file=sys.stderr, flush=True)
+
         # Load blacklist rules
         blocked_dids, banned_keywords = extract_filters(feed_uri)
 
@@ -180,7 +186,7 @@ def make_handler(feed_uri: str):
             elif src.source_type == "topic_preference":
                 tasks.append(asyncio.create_task(search_topics(src.identifier, limit)))
 
-        print("Created tasks:", tasks)
+        logger.info("Created tasks: %s", tasks)
         results = await asyncio.gather(*tasks)
 
 

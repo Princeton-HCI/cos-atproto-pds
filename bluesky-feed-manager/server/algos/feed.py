@@ -11,9 +11,9 @@ from collections import defaultdict
 import random
 
 CACHE_TTL = 60  # seconds
-RESPONSE_LIMIT = 100 # number of posts to be received from api response
+RESPONSE_LIMIT = 40 # number of posts to be received from api response
 FEED_LIMIT = 500 # number of total posts in a feed
-MAX_PER_AUTHOR = 50 # max posts per author in a feed
+MAX_PER_AUTHOR = 20 # max posts per author in a feed
 
 CUSTOM_API_URL = os.environ.get("CUSTOM_API_URL")
 
@@ -177,8 +177,8 @@ def make_handler(feed_uri: str):
         for src in sources:
             if src.source_type == "account_preference":
                 tasks.append(fetch_author_posts(src.identifier, limit))
-            # elif src.source_type == "topic_preference":
-            #     tasks.append(search_topics(src.identifier, limit))
+            elif src.source_type == "topic_preference":
+                tasks.append(search_topics(src.identifier, limit))
         results = await asyncio.gather(*tasks)
 
         for r in results:
@@ -257,10 +257,7 @@ def make_handler(feed_uri: str):
             start = 0
 
         limit = int(limit)
-        cached = await serve_from_cache()  # always check TTL
-
-        if not cached:
-            cached = await build_feed(FEED_LIMIT)
+        cached = await build_feed(FEED_LIMIT)
 
         feed_items = cached.get("feed", [])
 

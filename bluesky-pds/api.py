@@ -45,18 +45,18 @@ app.add_middleware(
 @app.get("/search/posts")
 async def search_posts(q: str = Query(...)):
     """
-    Search for posts by text (ILIKE).
+    Search for posts by text using full-text search.
     """
     logger.info(f"Received post search query: {q}")
     async with app.state.pool.acquire() as conn:
         rows = await conn.fetch(
             """
             SELECT * FROM posts
-            WHERE text ILIKE $1
+            WHERE to_tsvector('english', text) @@ plainto_tsquery('english', $1)
             ORDER BY created_at DESC
             LIMIT 50
             """,
-            f"%{q}%",
+            q,
         )
     return [dict(row) for row in rows]
 

@@ -69,7 +69,10 @@ async def init_db():
         CREATE INDEX IF NOT EXISTS posts_text_trgm_idx
         ON posts USING GIN (text gin_trgm_ops);
     """)
-
+    await conn.execute("""
+        CREATE INDEX IF NOT EXISTS posts_text_fts_idx
+        ON posts USING GIN (to_tsvector('english', text));
+    """)
     await conn.close()
     logger.info("Posts DB ready.")
 

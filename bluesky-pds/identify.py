@@ -35,7 +35,8 @@ CREATE TABLE IF NOT EXISTS authors (
     display_name_embedding VECTOR(384),
     handle_embedding VECTOR(384),
     description_embedding VECTOR(384),
-    recent_posts_embedding VECTOR(384)
+    recent_posts_embedding VECTOR(384),
+    search_vector tsvector GENERATED ALWAYS AS (to_tsvector('english', coalesce(display_name, '') || ' ' || coalesce(handle, '') || ' ' || coalesce(description, '') || ' ' || coalesce(recent_posts, ''))) STORED
 );
 """
 
@@ -70,22 +71,22 @@ async def init_db():
     await conn.execute("""
         CREATE INDEX IF NOT EXISTS authors_display_name_embedding_idx
         ON authors USING ivfflat (display_name_embedding vector_l2_ops)
-        WITH (lists = 200);
+        WITH (lists = 1000);
     """)
     await conn.execute("""
         CREATE INDEX IF NOT EXISTS authors_handle_embedding_idx
         ON authors USING ivfflat (handle_embedding vector_l2_ops)
-        WITH (lists = 200);
+        WITH (lists = 1000);
     """)
     await conn.execute("""
         CREATE INDEX IF NOT EXISTS authors_description_embedding_idx
         ON authors USING ivfflat (description_embedding vector_l2_ops)
-        WITH (lists = 200);
+        WITH (lists = 1000);
     """)
     await conn.execute("""
         CREATE INDEX IF NOT EXISTS authors_recent_posts_embedding_idx
         ON authors USING ivfflat (recent_posts_embedding vector_l2_ops)
-        WITH (lists = 200);
+        WITH (lists = 1000);
     """)
     await conn.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
     await conn.execute("""
@@ -103,6 +104,10 @@ async def init_db():
     await conn.execute("""
         CREATE INDEX IF NOT EXISTS authors_recent_posts_trgm_idx
         ON authors USING GIN (recent_posts gin_trgm_ops);
+    """)
+    await conn.execute("""
+        CREATE INDEX IF NOT EXISTS authors_search_vector_idx
+        ON authors USING GIN (search_vector);
     """)
 
     await conn.close()

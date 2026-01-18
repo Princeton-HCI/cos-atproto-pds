@@ -62,7 +62,7 @@ async def init_db():
     await conn.execute("""
         CREATE INDEX IF NOT EXISTS posts_embedding_idx
         ON posts USING ivfflat (embedding vector_l2_ops)
-        WITH (lists = 200);
+        WITH (lists = 1000);
     """)
     await conn.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
     await conn.execute("""

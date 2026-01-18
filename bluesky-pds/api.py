@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from asyncpg import create_pool
 import uvicorn
 import os
+import math
 from contextlib import asynccontextmanager
 import logging
 
@@ -75,10 +76,10 @@ async def search_authors(q: str = Query(...), use_embedding: bool = Query(False)
             rows = await conn.fetch(
                 """
                 SELECT *,
-                       1 - (posts_embedding <=> $1) AS similarity,
+                       1 - (recent_posts_embedding <=> $1) AS similarity,
                        (followers_count + posts_count) AS fame_score
                 FROM authors
-                WHERE posts_embedding IS NOT NULL
+                WHERE recent_posts_embedding IS NOT NULL
                 ORDER BY similarity DESC, fame_score DESC, updated_at DESC
                 LIMIT 50
                 """,
@@ -91,15 +92,11 @@ async def search_authors(q: str = Query(...), use_embedding: bool = Query(False)
                 SELECT *,
                        (followers_count + posts_count) AS fame_score
                 FROM authors
-                WHERE
-                    display_name ILIKE $1
-                    OR handle ILIKE $1
-                    OR description ILIKE $1
-                    OR recent_posts ILIKE $1
+                WHERE search_vector @@ plainto_tsquery('english', $1)
                 ORDER BY fame_score DESC, updated_at DESC
                 LIMIT 50
                 """,
-                f"%{q}%",
+                q,
             )
     return [dict(row) for row in rows]
 
@@ -111,7 +108,16 @@ async def vector_search_posts(vector: list[float]):
     """
     if len(vector) != 384:
         return {"error": "Vector must be 384-dimensional."}
-
+    
+    if not all(math.isfinite(x) for x in vector):
+        return {"error": "Vector contains invalid values (NaN or Inf)."}
+    
+    # Normalize the vector
+    norm = math.sqrt(sum(x * x for x in vector))
+    if norm == 0:
+        return {"error": "Zero vector provided."}
+    vector = [x / norm for x in vector]
+    
     vector_str = f"[{','.join(map(str, vector))}]"
 
     async with app.state.pool.acquire() as conn:
@@ -133,21 +139,30 @@ async def vector_search_posts(vector: list[float]):
 @app.post("/vector/search/authors")
 async def vector_search_authors(vector: list[float]):
     """
-    Find authors whose posts_embedding are most similar to the provided 384-dim vector.
+    Find authors whose recent_posts_embedding are most similar to the provided 384-dim vector.
     """
     if len(vector) != 384:
         return {"error": "Vector must be 384-dimensional."}
-
+    
+    if not all(math.isfinite(x) for x in vector):
+        return {"error": "Vector contains invalid values (NaN or Inf)."}
+    
+    # Normalize the vector
+    norm = math.sqrt(sum(x * x for x in vector))
+    if norm == 0:
+        return {"error": "Zero vector provided."}
+    vector = [x / norm for x in vector]
+    
     vector_str = f"[{','.join(map(str, vector))}]"
 
     async with app.state.pool.acquire() as conn:
         rows = await conn.fetch(
             """
             SELECT *,
-                   1 - (posts_embedding <=> $1) AS similarity
+                   1 - (recent_posts_embedding <=> $1) AS similarity
             FROM authors
-            WHERE posts_embedding IS NOT NULL
-            ORDER BY posts_embedding <=> $1
+            WHERE recent_posts_embedding IS NOT NULL
+            ORDER BY recent_posts_embedding <=> $1
             LIMIT 25
             """,
             vector_str,

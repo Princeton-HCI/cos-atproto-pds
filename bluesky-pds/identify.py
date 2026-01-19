@@ -171,7 +171,7 @@ async def process_author(pool, session, did):
         logger.info(f"Processed author {did}")
 
 
-async def build_authors(batch_size=50, concurrency=10):
+async def build_authors(batch_size=100, concurrency=20):
     pool = await asyncpg.create_pool(
         host=DB_HOST, port=DB_PORT, user=DB_USER, password=DB_PASSWORD,
         database=DB_NAME, ssl="require"

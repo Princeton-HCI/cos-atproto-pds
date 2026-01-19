@@ -9,36 +9,31 @@ source .env
 set +a
 
 start() {
-  if [ -f "$PID_FILE" ] && kill -0 $(cat "$PID_FILE") 2>/dev/null; then
-    echo "$SCRIPT is already running with PID $(cat "$PID_FILE")"
+  current=$(pgrep -f "$SCRIPT" | wc -l)
+  needed=$((2 - current))
+  if [ "$needed" -le 0 ]; then
+    echo "Already 2 instances of $SCRIPT running"
     exit 1
   fi
 
-  nohup python3 "$SCRIPT" > "$LOG_FILE" 2>&1 &
-  echo $! > "$PID_FILE"
-  echo "Started $SCRIPT with PID $(cat "$PID_FILE")"
+  for i in $(seq 1 "$needed"); do
+    nohup python3 "$SCRIPT" > "$LOG_FILE" 2>&1 &
+    echo $! > "$PID_FILE"
+    echo "Started $SCRIPT instance $i with PID $(cat "$PID_FILE")"
+  done
 }
 
 stop() {
-  if [ ! -f "$PID_FILE" ]; then
-    echo "No PID file found for $SCRIPT"
-    exit 1
-  fi
-
-  PID=$(cat "$PID_FILE")
-  if kill -0 "$PID" 2>/dev/null; then
-    kill "$PID"
-    echo "Stopped $SCRIPT (PID $PID)"
-    rm "$PID_FILE"
-  else
-    echo "Process $PID not running"
-    rm "$PID_FILE"
-  fi
+  pkill -f "$SCRIPT"
+  echo "Stopped all instances of $SCRIPT"
+  rm -f "$PID_FILE"
 }
 
 status() {
-  if [ -f "$PID_FILE" ] && kill -0 $(cat "$PID_FILE") 2>/dev/null; then
-    echo "$SCRIPT is running with PID $(cat "$PID_FILE")"
+  count=$(pgrep -f "$SCRIPT" | wc -l)
+  if [ "$count" -gt 0 ]; then
+    echo "$count instance(s) of $SCRIPT running"
+    pgrep -f "$SCRIPT"
   else
     echo "$SCRIPT is not running"
   fi

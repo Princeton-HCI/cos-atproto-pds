@@ -9,7 +9,7 @@ This guide walks you through setting up a self-hosted Bluesky PDS that ingests d
 **Settings:**
 
 - OS: Ubuntu 24.04 LTS
-- Machine Type: `e2-small`
+- Machine Type: `e2-standard-2` (2 vCPUs, 8GB RAM for embedding performance)
 - Storage: 20GB
 - Enable: HTTP & HTTPS traffic
 
@@ -223,7 +223,7 @@ The files included are:
 - `identify.py` — author discovery and profile aggregation
 - `embed_posts.py` — generates embeddings for posts
 - `embed_authors.py` — generates embeddings for authors
-- `prune.py` — monitors database size and prunes old posts
+- `prune.py` — weekly pruning of oldest posts (deletes 3M every 7 days)
 - `api.py` — FastAPI-powered search and vector query API
 
 It is **no longer imperative** to run these scripts manually for normal operation, as they are typically managed via the provided shell scripts.
@@ -251,9 +251,8 @@ nano .env
 - `DB_NAME` – The name of the PostgreSQL database created on the VM.
 - `DB_USER` – The PostgreSQL user/role created on the VM for the application.
 - `DB_PASSWORD` – The password for the PostgreSQL user created on the VM.
-- `PRUNE_DB_THRESHOLD_GB` – The maximum database size (in GB) before the prune script starts deleting old posts.
-- `PRUNE_DELETE_COUNT` – The number of posts to delete per prune cycle once the size threshold is exceeded.
-- `PRUNE_INTERVAL_SEC` – The number of seconds to wait between successive prune checks.
+- `PRUNE_DELETE_COUNT` – The number of oldest posts to delete weekly (default: 3000000).
+- `PRUNE_INTERVAL_SEC` – The number of seconds between prune cycles (default: 604800, i.e., 7 days).
 
 Once all the environment variables are in place, run the four python scripts.
 
@@ -428,8 +427,8 @@ The repository includes shell scripts to run each long-lived service in the back
 - `run_prune.sh` — database size monitoring and post pruning
 - `run_api.sh` — FastAPI search API
 - `run_identify.sh` — author identification and metadata aggregation
-- `run_embed_posts.sh` — post embedding worker
-- `run_embed_authors.sh` — author embedding worker
+- `run_embed_posts.sh` — post embedding worker (supports up to 2 concurrent instances)
+- `run_embed_authors.sh` — author embedding worker (supports up to 2 concurrent instances)
 
 Make all scripts executable:
 
@@ -443,8 +442,8 @@ Start services as needed:
 ./run_ingest.sh start
 ./run_prune.sh start
 ./run_identify.sh start
-./run_embed_posts.sh start
-./run_embed_authors.sh start
+./run_embed_posts.sh start  # starts 2 instances
+./run_embed_authors.sh start  # starts 2 instances
 ./run_api.sh start
 ```
 

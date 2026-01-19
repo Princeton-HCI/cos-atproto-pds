@@ -13,15 +13,11 @@ logger = logging.getLogger(__name__)
 # Constants and configuration
 TABLE_NAME = "posts"
 
-# Threshold in GB (e.g. 10)
-PRUNE_DB_THRESHOLD_GB = float(os.getenv("PRUNE_DB_THRESHOLD_GB", "10"))
-SIZE_LIMIT_BYTES = int(PRUNE_DB_THRESHOLD_GB * 1024 * 1024 * 1024)
+# Number of rows to delete weekly
+DELETE_COUNT = int(os.getenv("PRUNE_DELETE_COUNT", "3000000"))
 
-# Number of rows to delete when threshold exceeded
-DELETE_BATCH_SIZE = int(os.getenv("PRUNE_DELETE_COUNT", "500000"))
-
-# How often to check (seconds)
-PRUNE_INTERVAL_SEC = int(os.getenv("PRUNE_INTERVAL_SEC", "10"))
+# How often to prune (seconds) - every week
+PRUNE_INTERVAL_SEC = int(os.getenv("PRUNE_INTERVAL_SEC", str(7 * 24 * 3600)))
 
 # Database config
 DB_HOST = os.getenv("DB_HOST")
@@ -36,16 +32,9 @@ DATABASE_URL = (
 )
 
 # Helpers
-async def get_table_size(conn) -> int:
-    row = await conn.fetchrow(
-        "SELECT pg_total_relation_size($1) AS size",
-        TABLE_NAME,
-    )
-    return row["size"]
-
 async def prune_oldest_rows(conn):
     logger.warning(
-        f"Threshold exceeded — deleting {DELETE_BATCH_SIZE:,} oldest posts"
+        f"Weekly prune — deleting {DELETE_COUNT:,} oldest posts"
     )
 
     result = await conn.execute(f"""
@@ -54,7 +43,7 @@ async def prune_oldest_rows(conn):
             SELECT ctid
             FROM {TABLE_NAME}
             ORDER BY created_at ASC
-            LIMIT {DELETE_BATCH_SIZE}
+            LIMIT {DELETE_COUNT}
         )
     """)
 
@@ -67,17 +56,9 @@ async def run_pruner():
 
     try:
         while True:
-            size_bytes = await get_table_size(conn)
-            size_gb = size_bytes / 1024 / 1024 / 1024
-
-            logger.info(
-                f"{TABLE_NAME} size: {size_gb:.2f} GB "
-                f"(limit {PRUNE_DB_THRESHOLD_GB:.2f} GB)"
-            )
-
-            if size_bytes > SIZE_LIMIT_BYTES:
-                await prune_oldest_rows(conn)
-
+            logger.info("Starting weekly prune")
+            await prune_oldest_rows(conn)
+            logger.info(f"Sleeping for {PRUNE_INTERVAL_SEC} seconds ({PRUNE_INTERVAL_SEC / 3600 / 24:.1f} days)")
             await asyncio.sleep(PRUNE_INTERVAL_SEC)
 
     finally:

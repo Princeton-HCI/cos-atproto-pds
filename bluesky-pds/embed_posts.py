@@ -6,6 +6,7 @@ import onnxruntime as ort
 from transformers import AutoTokenizer
 import asyncio
 import logging
+import concurrent.futures
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -53,7 +54,7 @@ def embed(texts):
 
     return vecs.tolist()
 
-async def process_posts(pool, batch_size=32):
+async def process_posts(pool, batch_size=64):
     async with pool.acquire() as conn:
         rows = await conn.fetch("""
             SELECT id, text

@@ -100,7 +100,7 @@ exit
 
 ### Configure Postgres for external access
 
-By default, Postgres only allows **local connections**. To allow your embedding scripts to connect:
+By default, Postgres only allows **local connections**. To allow your PDS VM-based scripts to connect:
 
 1. Edit **postgresql.conf**:
 
@@ -126,7 +126,7 @@ sudo systemctl restart postgresql
 
 ---
 
-### Test Connection from VM
+### Test Connection from PDS VM
 
 SSH into your first VM and install `psql`:
 

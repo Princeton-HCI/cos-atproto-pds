@@ -46,9 +46,9 @@ This guide walks you through setting up a self-hosted Bluesky PDS that ingests d
 
 ---
 
-### Install Postgres on the VM
+### Install Postgres on the Database VM
 
-SSH into the second VM and run the following:
+SSH into the second VM (the database one) and run the following:
 
 ```bash
 sudo apt update

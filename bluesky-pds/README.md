@@ -52,7 +52,7 @@ SSH into the second VM and run the following:
 
 ```bash
 sudo apt update
-sudo apt install -y postgresql postgresql-contrib postgresql-16-pgvector
+sudo apt install -y postgresql postgresql-contrib postgresql-16-pgvector htop iotop
 ```
 
 Start and enable the service:
@@ -183,7 +183,7 @@ Once done you can return here and continue onwards.
 
 ```bash
 sudo apt update
-sudo apt install -y python3-pip xdg-utils
+sudo apt install -y python3-pip xdg-utils htop iotop
 
 sudo pip3 install --upgrade --force-reinstall --ignore-installed \
     websockets \
@@ -353,7 +353,6 @@ gcloud compute instances list
    [https://cloud.google.com/sdk/docs/install](https://cloud.google.com/sdk/docs/install)
 
 2. Run the installer and enable:
-
    - “Add gcloud to PATH”
    - “Install bundled Python”
 
@@ -533,17 +532,6 @@ You should get results from your ingested posts.
 
 ---
 
-Good catch — here's the **corrected and final version** of that section, explicitly accounting for:
-
-- ✅ **Password-authenticated user**
-- ✅ **External IP access from the PDS VM**
-- ✅ **Local access from the DB VM**
-- ✅ Still using **one-liners**
-
-This can safely replace **Section 16** in your README.
-
----
-
 ## 16. Useful Queries (VM-Hosted Postgres)
 
 These queries can be run either:
@@ -628,6 +616,41 @@ SELECT COUNT(*) AS post_count FROM posts;
 ```sql
 \q
 ```
+
+---
+
+## 17. Monitoring VM Performance
+
+To monitor resource usage on your VMs (CPU, memory, disk I/O), use `htop` for overall system stats and `iotop` for disk I/O details. These help diagnose bottlenecks during high loads (e.g., embedding or querying).
+
+### Using htop
+
+`htop` provides a real-time view of CPU, memory, and processes.
+
+```bash
+htop
+```
+
+- **Key Metrics**:
+  - **CPU**: Look for high usage (>80%) on embedding processes.
+  - **Memory**: Ensure RAM isn't maxed (aim <90% usage).
+  - **Processes**: Sort by CPU/MEM to see top consumers (e.g., `python3 embed_posts.py`).
+- **Navigation**: Press `F6` to sort, `F9` to kill processes, `q` to quit.
+
+### Using iotop
+
+`iotop` shows disk I/O per process, useful for DB-heavy workloads.
+
+```bash
+sudo iotop
+```
+
+- **Key Metrics**:
+  - **Disk Read/Write**: High I/O from PostgreSQL indicates query/DB load.
+  - **Processes**: Check `postgres` or Python scripts for excessive I/O.
+- **Options**: `sudo iotop -o` (only show processes with I/O), `q` to quit.
+
+Run these during peak times (e.g., after starting embeds) to ensure VMs aren't overloaded. If CPU >90% or I/O is high, consider upgrading instances.
 
 ---
 

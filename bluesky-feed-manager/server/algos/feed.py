@@ -278,6 +278,13 @@ def make_handler(feed_uri: str):
         # Deduplicate collected posts before fetching full posts
         collected = list({p["uri"]: p for p in collected}.values())
 
+        # Dynamically scale collection size based on MAX_PER_AUTHOR
+        # Lower MAX_PER_AUTHOR = stricter filtering = need more posts
+        collection_multiplier = max(2, 10 // MAX_PER_AUTHOR)
+        target_collected = FEED_LIMIT * collection_multiplier
+        if len(collected) > target_collected:
+            collected = random.sample(collected, target_collected)
+
         # Fetch full posts with concurrency limit to avoid overwhelming API
         sem = asyncio.Semaphore(10)
 

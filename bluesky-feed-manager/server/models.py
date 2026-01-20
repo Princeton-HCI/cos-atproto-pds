@@ -32,3 +32,16 @@ class FeedCache(Model):
 
     class Meta:
         database = db
+
+
+class SearchCache(Model):
+    query = TextField()
+    search_type = TextField()  # 'vector' or 'text'
+    results_json = TextField()  # JSON list of {"repo":..., "rkey":...}
+    timestamp = IntegerField()  # UNIX timestamp
+
+    class Meta:
+        database = db
+        indexes = (
+            (('query', 'search_type'), True),
+        )

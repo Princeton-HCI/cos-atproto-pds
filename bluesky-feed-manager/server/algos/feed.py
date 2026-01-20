@@ -7,12 +7,13 @@ from transformers import AutoTokenizer
 import asyncio
 import time
 from datetime import datetime, timezone
-from server.models import Feed, FeedSource, FeedCache
+from server.models import Feed, FeedSource, FeedCache, SearchCache
 from collections import defaultdict
 import random
 
 CACHE_TTL = 60  # seconds
-RESPONSE_LIMIT = 40 # number of posts to be received from api response
+SEARCH_CACHE_TTL = 300  # 5 minutes for search results
+RESPONSE_LIMIT = 20 # number of posts to be received from api response
 FEED_LIMIT = 100 # number of total posts in a feed
 MAX_PER_AUTHOR = 20 # max posts per author in a feed
 MAX_AGE_SECONDS = 48 * 60 * 60  # 48 hours in seconds
@@ -98,10 +99,19 @@ async def fetch_author_posts(actor_did: str, limit: int = RESPONSE_LIMIT) -> lis
 
 async def search_vector(query: str, limit: int = RESPONSE_LIMIT) -> list[dict]:
     """Use vector search to find relevant posts, returning minimal identifiers."""
+    # Check cache
+    row = SearchCache.get_or_none(
+        (SearchCache.query == query) & (SearchCache.search_type == 'vector')
+    )
+    if row and (time.time() - row.timestamp) < SEARCH_CACHE_TTL:
+        cached_results = json.loads(row.results_json)
+        return [await fetch_post_by_identifier(r['repo'], r['rkey']) for r in cached_results[:limit]]
+
+    # Fetch from API
     vector = encode_onnx(query).tolist()[0][0]
     body = json.dumps(vector)
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    async with httpx.AsyncClient(timeout=10.0) as client:
         r_vector = await client.post(
             f"{CUSTOM_API_URL}vector/search/posts",
             content=body,
@@ -113,18 +123,36 @@ async def search_vector(query: str, limit: int = RESPONSE_LIMIT) -> list[dict]:
         return []
 
     results = []
-    for post in r_vector.json()[:limit]:
+    api_results = r_vector.json()[:limit]
+    for post in api_results:
         repo = post.get("repo")
         rkey = post.get("rkey")
         if repo and rkey:
             results.append(await fetch_post_by_identifier(repo, rkey))
+
+    # Cache the API results
+    SearchCache.insert(
+        query=query,
+        search_type='vector',
+        results_json=json.dumps(api_results),
+        timestamp=int(time.time())
+    ).on_conflict_replace().execute()
 
     return results
 
 
 async def search_text(query: str, limit: int = RESPONSE_LIMIT) -> list[dict]:
     """Use text search to find relevant posts, returning minimal identifiers."""
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    # Check cache
+    row = SearchCache.get_or_none(
+        (SearchCache.query == query) & (SearchCache.search_type == 'text')
+    )
+    if row and (time.time() - row.timestamp) < SEARCH_CACHE_TTL:
+        cached_results = json.loads(row.results_json)
+        return [await fetch_post_by_identifier(r['repo'], r['rkey']) for r in cached_results[:limit]]
+
+    # Fetch from API
+    async with httpx.AsyncClient(timeout=10.0) as client:
         r_text = await client.get(
             f"{CUSTOM_API_URL}search/posts",
             params={"q": query}
@@ -135,11 +163,20 @@ async def search_text(query: str, limit: int = RESPONSE_LIMIT) -> list[dict]:
         return []
 
     results = []
-    for post in r_text.json()[:limit]:
+    api_results = r_text.json()[:limit]
+    for post in api_results:
         repo = post.get("repo")
         rkey = post.get("rkey")
         if repo and rkey:
             results.append(await fetch_post_by_identifier(repo, rkey))
+
+    # Cache the API results
+    SearchCache.insert(
+        query=query,
+        search_type='text',
+        results_json=json.dumps(api_results),
+        timestamp=int(time.time())
+    ).on_conflict_replace().execute()
 
     return results
 
@@ -198,12 +235,15 @@ def make_handler(feed_uri: str):
 
         # Fetch posts concurrently
         tasks = []
+        seen_queries = set()
         for src in sources:
             if src.source_type == "account_preference":
                 tasks.append(fetch_author_posts(src.identifier, limit))
             elif src.source_type == "topic_preference":
-                tasks.append(search_vector(src.identifier, limit))
-                tasks.append(search_text(src.identifier, limit))
+                if src.identifier not in seen_queries:
+                    tasks.append(search_vector(src.identifier, limit))
+                    tasks.append(search_text(src.identifier, limit))
+                    seen_queries.add(src.identifier)
         results = await asyncio.gather(*tasks)
 
         for r in results:

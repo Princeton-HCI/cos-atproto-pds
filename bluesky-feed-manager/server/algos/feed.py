@@ -268,7 +268,7 @@ def make_handler(feed_uri: str):
             elif src.source_type == "topic_preference":
                 if src.identifier not in seen_queries:
                     tasks.append(search_text(src.identifier, limit))
-                    # tasks.append(search_vector(src.identifier, limit))
+                    tasks.append(search_vector(src.identifier, limit))
                     seen_queries.add(src.identifier)
         results = await asyncio.gather(*tasks)
 

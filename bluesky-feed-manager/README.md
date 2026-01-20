@@ -568,3 +568,27 @@ With a single API call, you can:
 - See it start ranking posts immediately based on your blueprint
 
 No code changes. No redeploys. Fully dynamic.
+
+---
+
+## Extra: Feed Generator Overview
+
+The feed generator works by composing personalized feeds from multiple sources:
+
+**Architecture:**
+
+- **Sources**: Each feed is built from author preferences (specific DIDs) and topic preferences (keyword/semantic searches).
+- **Collection**: Posts are fetched concurrently from author feeds and search APIs (both text and vector-based semantic search).
+- **Filtering**: Posts are deduplicated, filtered by recency (48 hours), author-per-post limits, and blacklist rules.
+- **Sorting**: Posts are ranked by creation timestamp (newest first) and served to the user.
+
+**Performance Optimizations:**
+
+- **Caching**: Feeds are cached for 5 minutes; users always get instant responses from cache, with background rebuilds triggered after 5 minutes.
+- **Concurrency**: Author fetches, search queries, and full-post fetches run in parallel with semaphore limits to prevent API rate-limiting.
+- **Deduplication**: Posts are deduplicated by URI before full-post fetching to reduce API calls.
+- **Collection Scaling**: Collection size dynamically scales based on `MAX_PER_AUTHOR` (stricter limits = larger collections needed to fill the feed).
+
+**Result**: Users see a fresh, personalized 100-post feed in under 1 second from cache, with new data refreshed every 5 minutes in the background.
+
+---

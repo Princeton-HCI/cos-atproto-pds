@@ -218,6 +218,7 @@ def should_block_post(full_post: dict, blocked_dids: set, banned_keywords: set) 
 
 # Feed handler factory
 def make_handler(feed_uri: str):
+    build_lock = asyncio.Lock()  # Prevent concurrent builds for the same feed
     async def build_feed(limit=RESPONSE_LIMIT):
         """Build fresh feed skeleton by fetching sources + posts."""
         sources = (
@@ -359,7 +360,11 @@ def make_handler(feed_uri: str):
         cached = await serve_from_cache()  # always check TTL
 
         if not cached:
-            cached = await build_feed(FEED_LIMIT)
+            async with build_lock:
+                # Double-check after acquiring lock
+                cached = await serve_from_cache()
+                if not cached:
+                    cached = await build_feed(FEED_LIMIT)
 
         feed_items = cached.get("feed", [])
 

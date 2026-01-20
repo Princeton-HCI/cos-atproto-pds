@@ -6,6 +6,7 @@ import onnxruntime as ort
 from transformers import AutoTokenizer
 import asyncio
 import time
+from datetime import datetime, timezone
 from server.models import Feed, FeedSource, FeedCache
 from collections import defaultdict
 import random
@@ -14,6 +15,7 @@ CACHE_TTL = 60  # seconds
 RESPONSE_LIMIT = 40 # number of posts to be received from api response
 FEED_LIMIT = 100 # number of total posts in a feed
 MAX_PER_AUTHOR = 20 # max posts per author in a feed
+MAX_AGE_SECONDS = 48 * 60 * 60  # 48 hours in seconds
 
 CUSTOM_API_URL = os.environ.get("CUSTOM_API_URL")
 
@@ -94,7 +96,7 @@ async def fetch_author_posts(actor_did: str, limit: int = RESPONSE_LIMIT) -> lis
     return results
 
 
-async def search_topics(query: str, limit: int = RESPONSE_LIMIT) -> list[dict]:
+async def search_vector(query: str, limit: int = RESPONSE_LIMIT) -> list[dict]:
     """Use vector search to find relevant posts, returning minimal identifiers."""
     vector = encode_onnx(query).tolist()[0][0]
     body = json.dumps(vector)
@@ -112,6 +114,28 @@ async def search_topics(query: str, limit: int = RESPONSE_LIMIT) -> list[dict]:
 
     results = []
     for post in r_vector.json()[:limit]:
+        repo = post.get("repo")
+        rkey = post.get("rkey")
+        if repo and rkey:
+            results.append(await fetch_post_by_identifier(repo, rkey))
+
+    return results
+
+
+async def search_text(query: str, limit: int = RESPONSE_LIMIT) -> list[dict]:
+    """Use text search to find relevant posts, returning minimal identifiers."""
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        r_text = await client.get(
+            f"{CUSTOM_API_URL}search/posts",
+            params={"q": query}
+        )
+
+    if r_text.status_code != 200:
+        print("Text search failed:", r_text.text)
+        return []
+
+    results = []
+    for post in r_text.json()[:limit]:
         repo = post.get("repo")
         rkey = post.get("rkey")
         if repo and rkey:
@@ -177,8 +201,9 @@ def make_handler(feed_uri: str):
         for src in sources:
             if src.source_type == "account_preference":
                 tasks.append(fetch_author_posts(src.identifier, limit))
-            # elif src.source_type == "topic_preference":
-            #     tasks.append(search_topics(src.identifier, limit))
+            elif src.source_type == "topic_preference":
+                tasks.append(search_vector(src.identifier, limit))
+                tasks.append(search_text(src.identifier, limit))
         results = await asyncio.gather(*tasks)
 
         for r in results:
@@ -204,23 +229,35 @@ def make_handler(feed_uri: str):
             if should_block_post(full_post, blocked_dids, banned_keywords):
                 continue
 
+            # Parse and check createdAt for recency
+            created_at_str = full_post.get("record", {}).get("createdAt")
+            if not created_at_str:
+                continue
+            try:
+                post_time = datetime.fromisoformat(created_at_str.replace("Z", "+00:00")).timestamp()
+                now = datetime.now(timezone.utc).timestamp()
+                if now - post_time > MAX_AGE_SECONDS:
+                    continue
+            except ValueError:
+                continue
+
             author_did = full_post.get("author", {}).get("did")
             if author_did:
                 if author_counts[author_did] >= MAX_PER_AUTHOR:
                     continue
                 author_counts[author_did] += 1
 
-            # Store full_post with URI for sorting
+            # Store full_post with URI and timestamp for sorting
             filtered_posts.append({
                 "uri": p["uri"],
-                "createdAt": full_post.get("record", {}).get("createdAt", 0)
+                "timestamp": post_time
             })
 
             if len(filtered_posts) >= FEED_LIMIT:
                 break
 
         # Sort posts by recency (newest first)
-        filtered_posts.sort(key=lambda x: x["createdAt"], reverse=True)
+        filtered_posts.sort(key=lambda x: x["timestamp"], reverse=True)
 
         # Format for Bluesky
         feed = {
@@ -238,16 +275,38 @@ def make_handler(feed_uri: str):
         return feed
 
     async def serve_from_cache(limit=10):
-        """Return cached feed if recent, otherwise None."""
+        """Return cached feed if recent and posts are fresh, otherwise None."""
         row = FeedCache.get_or_none(FeedCache.feed_uri == feed_uri)
         if row is None:
             return None
 
         age = time.time() - row.timestamp
-        if age < CACHE_TTL:
-            return json.loads(row.response_json)
+        if age >= CACHE_TTL:
+            return None  # Cache expired
 
-        return json.loads(row.response_json)  # stale but still valid
+        cached_feed = json.loads(row.response_json)
+        feed_items = cached_feed.get("feed", [])
+        if not feed_items:
+            return None
+
+        # Check if the oldest post in cache is within 48 hours
+        # Assuming feed is sorted newest first, check the last item
+        oldest_uri = feed_items[-1].get("post")
+        if oldest_uri:
+            # Fetch the oldest post to check its timestamp
+            oldest_full = await fetch_full_post(oldest_uri)
+            if oldest_full:
+                created_at_str = oldest_full.get("record", {}).get("createdAt")
+                if created_at_str:
+                    try:
+                        oldest_time = datetime.fromisoformat(created_at_str.replace("Z", "+00:00")).timestamp()
+                        now = datetime.now(timezone.utc).timestamp()
+                        if now - oldest_time > MAX_AGE_SECONDS:
+                            return None  # Cache has stale posts
+                    except ValueError:
+                        return None
+
+        return cached_feed
 
     async def handler(cursor=None, limit=RESPONSE_LIMIT):
         # Normalize cursor to integer

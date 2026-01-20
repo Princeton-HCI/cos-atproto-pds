@@ -14,7 +14,7 @@ import random
 SEARCH_CACHE_TTL = 300  # 5 minutes for search results
 RESPONSE_LIMIT = 10 # number of posts to be received from api response
 FEED_LIMIT = 100 # number of total posts in a feed
-MAX_PER_AUTHOR = 4 # max posts per author in a feed
+MAX_PER_AUTHOR = 10 # max posts per author in a feed
 MAX_AGE_SECONDS = 15 * 60  # 15 minutes in seconds
 
 CUSTOM_API_URL = os.environ.get("CUSTOM_API_URL")
@@ -280,31 +280,31 @@ def make_handler(feed_uri: str):
 
         # Fetch full posts with concurrency limit to avoid overwhelming API
         sem = asyncio.Semaphore(10)
+
+        async def fetch_with_sem(uri):
+            async with sem:
+                return await fetch_full_post(uri)
+
+        full_posts = await asyncio.gather(*[fetch_with_sem(p["uri"]) for p in collected])
+
         filtered_posts = []
         author_counts = defaultdict(int)
 
-        async def fetch_one(p):
-            async with sem:
-                return await fetch_full_post(p["uri"])
-
-        for p in collected:
-            full_post = await fetch_one(p)
+        for p, full_post in zip(collected, full_posts):
 
             if should_block_post(full_post, blocked_dids, banned_keywords):
                 continue
 
+            # Parse and check createdAt for recency
             created_at_str = full_post.get("record", {}).get("createdAt")
             if not created_at_str:
                 continue
-
             try:
-                post_time = datetime.fromisoformat(
-                    created_at_str.replace("Z", "+00:00")
-                ).timestamp()
+                post_time = datetime.fromisoformat(created_at_str.replace("Z", "+00:00")).timestamp()
+                now = datetime.now(timezone.utc).timestamp()
+                if now - post_time > MAX_AGE_SECONDS:
+                    continue
             except ValueError:
-                continue
-
-            if time.time() - post_time > MAX_AGE_SECONDS:
                 continue
 
             author_did = full_post.get("author", {}).get("did")
@@ -313,6 +313,7 @@ def make_handler(feed_uri: str):
                     continue
                 author_counts[author_did] += 1
 
+            # Store full_post with URI and timestamp for sorting
             filtered_posts.append({
                 "uri": p["uri"],
                 "timestamp": post_time

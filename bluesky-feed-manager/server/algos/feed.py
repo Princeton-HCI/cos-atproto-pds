@@ -111,12 +111,16 @@ async def search_vector(query: str, limit: int = RESPONSE_LIMIT) -> list[dict]:
     vector = encode_onnx(query).tolist()[0][0]
     body = json.dumps(vector)
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        r_vector = await client.post(
-            f"{CUSTOM_API_URL}vector/search/posts",
-            content=body,
-            headers={"Content-Type": "application/json"}
-        )
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            r_vector = await client.post(
+                f"{CUSTOM_API_URL}vector/search/posts",
+                content=body,
+                headers={"Content-Type": "application/json"}
+            )
+    except httpx.TimeoutException:
+        print(f"Vector search timeout for query: {query}")
+        return []
 
     if r_vector.status_code != 200:
         print("Vector search failed:", r_vector.text)
@@ -152,11 +156,15 @@ async def search_text(query: str, limit: int = RESPONSE_LIMIT) -> list[dict]:
         return [await fetch_post_by_identifier(r['repo'], r['rkey']) for r in cached_results[:limit]]
 
     # Fetch from API
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        r_text = await client.get(
-            f"{CUSTOM_API_URL}search/posts",
-            params={"q": query}
-        )
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            r_text = await client.get(
+                f"{CUSTOM_API_URL}search/posts",
+                params={"q": query}
+            )
+    except httpx.TimeoutException:
+        print(f"Text search timeout for query: {query}")
+        return []
 
     if r_text.status_code != 200:
         print("Text search failed:", r_text.text)

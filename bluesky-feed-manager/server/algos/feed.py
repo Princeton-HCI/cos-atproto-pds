@@ -264,6 +264,9 @@ def make_handler(feed_uri: str):
         # Fetch full posts concurrently
         full_posts = await asyncio.gather(*[fetch_full_post(p["uri"]) for p in collected])
 
+        filtered_posts = []
+        author_counts = defaultdict(int)
+
         for p, full_post in zip(collected, full_posts):
 
             if should_block_post(full_post, blocked_dids, banned_keywords):

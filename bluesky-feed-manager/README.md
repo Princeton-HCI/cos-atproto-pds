@@ -108,7 +108,8 @@ sudo apt install -y \
     debian-keyring \
     debian-archive-keyring \
     apt-transport-https \
-    curl
+    curl \
+    sqlite3
 sudo pip3 install --upgrade --force-reinstall --ignore-installed \
     python-dotenv \
     atproto \

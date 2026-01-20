@@ -62,7 +62,7 @@ sudo systemctl enable postgresql
 sudo systemctl start postgresql
 ```
 
-Check status:
+Check status (the output should say that the service is active):
 
 ```bash
 sudo systemctl status postgresql
@@ -72,27 +72,55 @@ sudo systemctl status postgresql
 
 ### Create a Postgres user and database
 
+Switch to postgres user
+
 ```bash
-# Switch to postgres user
 sudo -i -u postgres
+```
+
+Load up the postgres service
+
+```bash
 psql
+```
 
-# Inside psql, create user with password:
-CREATE USER blueskydbuser WITH PASSWORD <SET A PASSWORD>;
+Inside psql, create user with password
 
-# Promote your user to superuser
+```bash
+CREATE USER blueskydbuser WITH PASSWORD '<SET A PASSWORD>';
+```
+
+Promote your user to superuser
+
+```bash
 ALTER USER blueskydbuser WITH SUPERUSER;
+```
 
-# Create database owned by this user
+Create database owned by this user
+
+```bash
 CREATE DATABASE blueskydb OWNER blueskydbuser;
+```
 
-# Grant privileges (optional if user owns the DB)
+Grant privileges to this user
+
+```bash
 GRANT ALL PRIVILEGES ON DATABASE blueskydb TO blueskydbuser;
+```
 
-# Enable vector extension in your database
+Enable vector extension in your database
+
+```bash
 CREATE EXTENSION IF NOT EXISTS vector;
+```
 
+Once done, exit out
+
+```bash
 \q
+```
+
+```bash
 exit
 ```
 
@@ -102,23 +130,27 @@ exit
 
 By default, Postgres only allows **local connections**. To allow your PDS VM-based scripts to connect:
 
-1. Edit **postgresql.conf**:
+#### Edit **postgresql.conf**:
 
 ```bash
 sudo nano /etc/postgresql/16/main/postgresql.conf
-# Listen on all addresses
-listen_addresses = '*'
 ```
 
-2. Edit **pg_hba.conf** to allow your VM's user to connect:
+Scroll down and uncomment the line that starts with `listen_addresses`, then paste replace `'localhost'` with `'*'`.
+
+#### Edit **pg_hba.conf** to allow your VM's user to connect:
 
 ```bash
 sudo nano /etc/postgresql/16/main/pg_hba.conf
-# Add at the end:
+```
+
+Add this at the end:
+
+```conf
 host    all             all             0.0.0.0/0           md5
 ```
 
-3. Restart Postgres:
+#### Restart Postgres:
 
 ```bash
 sudo systemctl restart postgresql
@@ -218,12 +250,11 @@ cd cos-atproto-pds/bluesky-pds
 
 The files included are:
 
-- `debug.py` — for basic database and connectivity checks
 - `ingest.py` — ATProto firehose ingestion (posts)
+- `prune.py` — weekly pruning of oldest posts (deletes 3M every 7 days)
 - `identify.py` — author discovery and profile aggregation
 - `embed_posts.py` — generates embeddings for posts
 - `embed_authors.py` — generates embeddings for authors
-- `prune.py` — weekly pruning of oldest posts (deletes 3M every 7 days)
 - `api.py` — FastAPI-powered search and vector query API
 
 It is **no longer imperative** to run these scripts manually for normal operation, as they are typically managed via the provided shell scripts.
@@ -231,10 +262,10 @@ It is **no longer imperative** to run these scripts manually for normal operatio
 However, if you do choose to run them manually (for debugging or initial validation), the recommended order is:
 
 1. `ingest.py`
-2. `identify.py`
-3. `embed_posts.py`
-4. `embed_authors.py`
-5. `prune.py`
+2. `prune.py`
+3. `identify.py`
+4. `embed_posts.py`
+5. `embed_authors.py`
 6. `api.py`
 
 This order ensures data flows correctly from ingestion → author aggregation → embedding → pruning → API exposure.
@@ -254,180 +285,20 @@ nano .env
 - `PRUNE_DELETE_COUNT` – The number of oldest posts to delete weekly (default: 3000000).
 - `PRUNE_INTERVAL_SEC` – The number of seconds between prune cycles (default: 604800, i.e., 7 days).
 
-Once all the environment variables are in place, run the four python scripts.
+Once all the environment variables are in place, run the python scripts manually in order, or wait until we introduce the shell method of running each service in the next step.
 
 ---
 
-## 9. Benchmarking Firehose Ingest Performance
-
-The repository includes **`benchmark.py`**, which measures:
-
-- Ingestion time
-- Embedding generation time
-- Database insert time
-
-Each benchmark run:
-
-- **10 trials**
-- **30 seconds per trial**
-- Generates performance visualizations
-
-### Run on the VM
-
-SSH into your GCP VM and run:
-
-```bash
-python3 benchmark.py
-```
-
-This produces the following files **on the VM filesystem**:
-
-- `line_plot_times.png`
-- `bell_curves_rates.png`
-
-These images are useful for assessing the efficiencey of the PDS VM and the Bluesky search API.
-
----
-
-## 10. Install and Authenticate gcloud CLI (Local Machine)
-
-Since the GCP VMs are headless, to view these images you need to pull them down locally. To do that you must install and authenticate the **Google Cloud CLI** locally.
-
----
-
-### macOS
-
-Install:
-
-```bash
-brew install --cask google-cloud-sdk
-```
-
-Restart your terminal, then authenticate:
-
-```bash
-gcloud init
-```
-
-This will:
-
-- Open a browser
-- Log you into Google
-- Select a GCP project
-- Configure default region/zone
-
-Verify:
-
-```bash
-gcloud compute instances list
-```
-
----
-
-### Linux (Ubuntu / Debian)
-
-Install:
-
-```bash
-sudo apt update
-sudo apt install -y google-cloud-cli
-```
-
-Authenticate:
-
-```bash
-gcloud init
-```
-
-Verify:
-
-```bash
-gcloud compute instances list
-```
-
----
-
-### Windows
-
-1. Download the installer:
-   [https://cloud.google.com/sdk/docs/install](https://cloud.google.com/sdk/docs/install)
-
-2. Run the installer and enable:
-   - “Add gcloud to PATH”
-   - “Install bundled Python”
-
-3. Open **PowerShell** or **Command Prompt**, then authenticate:
-
-```powershell
-gcloud init
-```
-
-Verify:
-
-```powershell
-gcloud compute instances list
-```
-
----
-
-## 11. Pull Benchmark Images from VM to Local Machine
-
-Run these commands **from your local machine** (not the VM).
-
----
-
-### macOS / Linux
-
-```bash
-gcloud compute scp <user>@bluesky-pds:/home/<user>/cos-atproto-pds/bluesky-pds/line_plot_times.png ./line_plot_times.png --zone=<YOUR VM ZONE>
-```
-
-```bash
-gcloud compute scp <user>@bluesky-pds:/home/<user>/cos-atproto-pds/bluesky-pds/bell_curves_rates.png ./bell_curves_rates.png --zone=<YOUR VM ZONE>
-```
-
-Open the images:
-
-```bash
-open line_plot_times.png
-open bell_curves_rates.png
-```
-
----
-
-### Windows (PowerShell)
-
-```powershell
-gcloud compute scp <user>@bluesky-pds:/home/<user>/cos-atproto-pds/bluesky-pds/line_plot_times.png .\line_plot_times.png --zone=<YOUR VM ZONE>
-```
-
-```powershell
-gcloud compute scp <user>@bluesky-pds:/home/<user>/cos-atproto-pds/bluesky-pds/bell_curves_rates.png .\bell_curves_rates.png --zone=<YOUR VM ZONE>
-```
-
-Open the images:
-
-```powershell
-start line_plot_times.png
-start bell_curves_rates.png
-```
-
----
-
-Here's the updated section with the **explicit recommended startup order** added at the end, without changing the existing structure or tone:
-
----
-
-## 12. Shell Scripts to Manage Services
+## 9. Shell Scripts to Manage Services
 
 The repository includes shell scripts to run each long-lived service in the background and automatically restart them if they exit:
 
-- `run_ingest.sh` — ATProto firehose ingestion
-- `run_prune.sh` — database size monitoring and post pruning
-- `run_api.sh` — FastAPI search API
-- `run_identify.sh` — author identification and metadata aggregation
-- `run_embed_posts.sh` — post embedding worker (supports up to 2 concurrent instances)
-- `run_embed_authors.sh` — author embedding worker (supports up to 2 concurrent instances)
+- `run_ingest.sh`
+- `run_prune.sh`
+- `run_identify.sh`
+- `run_embed_posts.sh`
+- `run_embed_authors.sh`
+- `run_api.sh`
 
 Make all scripts executable:
 
@@ -441,8 +312,8 @@ Start services as needed:
 ./run_ingest.sh start
 ./run_prune.sh start
 ./run_identify.sh start
-./run_embed_posts.sh start  # starts 2 instances
-./run_embed_authors.sh start  # starts 2 instances
+./run_embed_posts.sh start
+./run_embed_authors.sh start
 ./run_api.sh start
 ```
 
@@ -465,15 +336,15 @@ Check service status or logs (if supported by the script):
 While services can be started independently, the recommended order for a clean start is:
 
 1. `run_ingest.sh` — begin collecting posts
-2. `run_identify.sh` — resolve authors and metadata
-3. `run_embed_posts.sh` — embed ingested posts
-4. `run_embed_authors.sh` — embed author data
-5. `run_prune.sh` — enforce database size limits
+2. `run_prune.sh` — enforce database size limits
+3. `run_identify.sh` — resolve authors and metadata
+4. `run_embed_posts.sh` — embed ingested posts
+5. `run_embed_authors.sh` — embed author data
 6. `run_api.sh` — expose search and vector endpoints
 
 This ordering ensures data flows correctly from ingestion → enrichment → embedding → pruning → API access.
 
-## 13. Set Up Caddy Proxy
+## 10. Set Up Caddy Proxy
 
 Your PDS likely already uses Caddy via Docker.
 
@@ -520,7 +391,7 @@ sudo docker restart <caddy-container-id>
 
 ---
 
-## 15. Verify
+## 11. Verify
 
 Test search endpoint:
 
@@ -532,7 +403,7 @@ You should get results from your ingested posts.
 
 ---
 
-## 16. Useful Queries (VM-Hosted Postgres)
+## 12. Useful Queries (VM-Hosted Postgres)
 
 These queries can be run either:
 
@@ -619,7 +490,7 @@ SELECT COUNT(*) AS post_count FROM posts;
 
 ---
 
-## 17. Monitoring VM Performance
+## 13. Monitoring VM Performance
 
 To monitor resource usage on your VMs (CPU, memory, disk I/O), use `htop` for overall system stats and `iotop` for disk I/O details. These help diagnose bottlenecks during high loads (e.g., embedding or querying).
 

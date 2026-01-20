@@ -29,6 +29,7 @@ class FeedCache(Model):
     feed_uri = TextField(unique=True)
     response_json = TextField()  # JSON string of {"cursor":..., "feed":[...]}
     timestamp = IntegerField()   # UNIX timestamp
+    oldest_timestamp = IntegerField(null=True)  # UNIX timestamp of oldest post in feed
 
     class Meta:
         database = db

@@ -250,30 +250,21 @@ def make_handler(feed_uri: str):
                 tasks.append(fetch_author_posts(src.identifier, limit))
             elif src.source_type == "topic_preference":
                 if src.identifier not in seen_queries:
-                    tasks.append(search_vector(src.identifier, limit))
                     tasks.append(search_text(src.identifier, limit))
+                    # tasks.append(search_vector(src.identifier, limit))
                     seen_queries.add(src.identifier)
         results = await asyncio.gather(*tasks)
 
         for r in results:
             collected.extend(r)
 
-        # Deduplicate
-        seen = set()
-        filtered_posts = []
-        author_counts = defaultdict(int)
+        # Deduplicate collected posts before fetching full posts
+        collected = list({p["uri"]: p for p in collected}.values())
 
         # Fetch full posts concurrently
         full_posts = await asyncio.gather(*[fetch_full_post(p["uri"]) for p in collected])
 
         for p, full_post in zip(collected, full_posts):
-            if not full_post:
-                print(f"Failed to fetch full post for URI: {p['uri']}")
-                continue
-            if p["uri"] in seen:
-                continue
-
-            print("Fetched full post:", full_post)
 
             if should_block_post(full_post, blocked_dids, banned_keywords):
                 continue
@@ -308,6 +299,11 @@ def make_handler(feed_uri: str):
         # Sort posts by recency (newest first)
         filtered_posts.sort(key=lambda x: x["timestamp"], reverse=True)
 
+        # Compute oldest timestamp for cache validation
+        oldest_timestamp = None
+        if filtered_posts:
+            oldest_timestamp = int(min(p["timestamp"] for p in filtered_posts))
+
         # Format for Bluesky
         feed = {
             "cursor": "0",
@@ -318,7 +314,8 @@ def make_handler(feed_uri: str):
         FeedCache.insert(
             feed_uri=feed_uri,
             response_json=json.dumps(feed),
-            timestamp=int(time.time())
+            timestamp=int(time.time()),
+            oldest_timestamp=oldest_timestamp
         ).on_conflict_replace().execute()
 
         return feed
@@ -338,22 +335,25 @@ def make_handler(feed_uri: str):
         if not feed_items:
             return None
 
-        # Check if the oldest post in cache is within 48 hours
-        # Assuming feed is sorted newest first, check the last item
-        oldest_uri = feed_items[-1].get("post")
-        if oldest_uri:
-            # Fetch the oldest post to check its timestamp
-            oldest_full = await fetch_full_post(oldest_uri)
-            if oldest_full:
-                created_at_str = oldest_full.get("record", {}).get("createdAt")
-                if created_at_str:
-                    try:
-                        oldest_time = datetime.fromisoformat(created_at_str.replace("Z", "+00:00")).timestamp()
-                        now = datetime.now(timezone.utc).timestamp()
-                        if now - oldest_time > MAX_AGE_SECONDS:
-                            return None  # Cache has stale posts
-                    except ValueError:
-                        return None
+        # Check if the oldest post in cache is within 48 hours using stored timestamp
+        if row.oldest_timestamp is not None:
+            if time.time() - row.oldest_timestamp > MAX_AGE_SECONDS:
+                return None  # Cache has stale posts
+        else:
+            # Fallback: fetch the oldest post to check timestamp (for backwards compatibility)
+            oldest_uri = feed_items[-1].get("post")
+            if oldest_uri:
+                oldest_full = await fetch_full_post(oldest_uri)
+                if oldest_full:
+                    created_at_str = oldest_full.get("record", {}).get("createdAt")
+                    if created_at_str:
+                        try:
+                            oldest_time = datetime.fromisoformat(created_at_str.replace("Z", "+00:00")).timestamp()
+                            now = datetime.now(timezone.utc).timestamp()
+                            if now - oldest_time > MAX_AGE_SECONDS:
+                                return None  # Cache has stale posts
+                        except ValueError:
+                            return None
 
         return cached_feed
 

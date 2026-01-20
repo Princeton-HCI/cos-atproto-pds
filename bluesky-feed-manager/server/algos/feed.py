@@ -11,10 +11,9 @@ from server.models import Feed, FeedSource, FeedCache, SearchCache
 from collections import defaultdict
 import random
 
-CACHE_TTL = 300  # 5 minutes
 SEARCH_CACHE_TTL = 300  # 5 minutes for search results
 RESPONSE_LIMIT = 10 # number of posts to be received from api response
-FEED_LIMIT = 100 # number of total posts in a feed
+FEED_LIMIT = 200 # number of total posts in a feed
 MAX_PER_AUTHOR = 10 # max posts per author in a feed
 MAX_AGE_SECONDS = 15 * 60  # 15 minutes in seconds
 
@@ -397,7 +396,7 @@ def make_handler(feed_uri: str):
         else:
             # Check if cache is over 5 minutes old, trigger background rebuild
             row = FeedCache.get_or_none(FeedCache.feed_uri == feed_uri)
-            if row and (time.time() - row.timestamp) > CACHE_TTL:
+            if row and (time.time() - row.timestamp) > SEARCH_CACHE_TTL:
                 asyncio.create_task(maybe_build_feed())  # Background rebuild
 
         feed_items = cached.get("feed", [])

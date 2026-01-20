@@ -13,9 +13,9 @@ import random
 
 CACHE_TTL = 300  # 5 minutes
 SEARCH_CACHE_TTL = 300  # 5 minutes for search results
-RESPONSE_LIMIT = 20 # number of posts to be received from api response
-FEED_LIMIT = 100 # number of total posts in a feed
-MAX_PER_AUTHOR = 20 # max posts per author in a feed
+RESPONSE_LIMIT = 10 # number of posts to be received from api response
+FEED_LIMIT = 10 # number of total posts in a feed
+MAX_PER_AUTHOR = 10 # max posts per author in a feed
 MAX_AGE_SECONDS = 15 * 60  # 15 minutes in seconds
 
 CUSTOM_API_URL = os.environ.get("CUSTOM_API_URL")

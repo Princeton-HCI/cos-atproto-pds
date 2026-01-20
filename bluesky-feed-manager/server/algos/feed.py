@@ -11,7 +11,7 @@ from server.models import Feed, FeedSource, FeedCache, SearchCache
 from collections import defaultdict
 import random
 
-CACHE_TTL = 60  # seconds
+CACHE_TTL = 300  # 5 minutes
 SEARCH_CACHE_TTL = 300  # 5 minutes for search results
 RESPONSE_LIMIT = 20 # number of posts to be received from api response
 FEED_LIMIT = 100 # number of total posts in a feed
@@ -261,8 +261,14 @@ def make_handler(feed_uri: str):
         # Deduplicate collected posts before fetching full posts
         collected = list({p["uri"]: p for p in collected}.values())
 
-        # Fetch full posts concurrently
-        full_posts = await asyncio.gather(*[fetch_full_post(p["uri"]) for p in collected])
+        # Fetch full posts with concurrency limit to avoid overwhelming API
+        sem = asyncio.Semaphore(10)
+
+        async def fetch_with_sem(uri):
+            async with sem:
+                return await fetch_full_post(uri)
+
+        full_posts = await asyncio.gather(*[fetch_with_sem(p["uri"]) for p in collected])
 
         filtered_posts = []
         author_counts = defaultdict(int)
@@ -329,10 +335,6 @@ def make_handler(feed_uri: str):
         if row is None:
             return None
 
-        age = time.time() - row.timestamp
-        if age >= CACHE_TTL:
-            return None  # Cache expired
-
         cached_feed = json.loads(row.response_json)
         feed_items = cached_feed.get("feed", [])
         if not feed_items:
@@ -368,7 +370,7 @@ def make_handler(feed_uri: str):
             start = 0
 
         limit = int(limit)
-        cached = await serve_from_cache()  # always check TTL
+        cached = await serve_from_cache()  # always check for any available cache
 
         if not cached:
             async with build_lock:
@@ -376,6 +378,11 @@ def make_handler(feed_uri: str):
                 cached = await serve_from_cache()
                 if not cached:
                     cached = await build_feed(FEED_LIMIT)
+        else:
+            # Check if cache is over 5 minutes old, trigger background rebuild
+            row = FeedCache.get_or_none(FeedCache.feed_uri == feed_uri)
+            if row and (time.time() - row.timestamp) > 300:
+                asyncio.create_task(build_feed(FEED_LIMIT))  # Background rebuild
 
         feed_items = cached.get("feed", [])
 

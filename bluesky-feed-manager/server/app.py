@@ -67,7 +67,7 @@ async def index():
     Bluesky Feed Manager
     https://github.com/Princeton-HCI/cos-atproto-pds/tree/main/bluesky-feed-manager
 
-    Princeton HCI - 2025
+    Princeton HCI - 2026
     </pre>"""
 
 @app.get("/.well-known/did.json")

@@ -227,6 +227,24 @@ def should_block_post(full_post: dict, blocked_dids: set, banned_keywords: set) 
 # Feed handler factory
 def make_handler(feed_uri: str):
     build_lock = asyncio.Lock()  # Prevent concurrent builds for the same feed
+    build_in_progress = False
+
+    async def maybe_build_feed(force=False):
+        nonlocal build_in_progress
+
+        async with build_lock:
+            if build_in_progress:
+                return None
+            build_in_progress = True
+
+        try:
+            return await build_feed(FEED_LIMIT)
+        finally:
+            async with build_lock:
+                build_in_progress = False
+
+
+
     async def build_feed(limit=RESPONSE_LIMIT):
         """Build fresh feed skeleton by fetching sources + posts."""
         sources = (
@@ -373,16 +391,14 @@ def make_handler(feed_uri: str):
         cached = await serve_from_cache()  # always check for any available cache
 
         if not cached:
-            async with build_lock:
-                # Double-check after acquiring lock
-                cached = await serve_from_cache()
-                if not cached:
-                    cached = await build_feed(FEED_LIMIT)
+            await maybe_build_feed(force=True)
+            cached = await serve_from_cache()
+
         else:
             # Check if cache is over 5 minutes old, trigger background rebuild
             row = FeedCache.get_or_none(FeedCache.feed_uri == feed_uri)
-            if row and (time.time() - row.timestamp) > 300:
-                asyncio.create_task(build_feed(FEED_LIMIT))  # Background rebuild
+            if row and (time.time() - row.timestamp) > CACHE_TTL:
+                asyncio.create_task(maybe_build_feed())  # Background rebuild
 
         feed_items = cached.get("feed", [])
 

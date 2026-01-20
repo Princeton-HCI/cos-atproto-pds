@@ -5,6 +5,12 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 
+from server import config
+from server.algos import algos
+from server.algos.feed import make_handler
+from server.create_feed import create_feed
+from server.models import db, Feed, FeedSource, FeedCache, SearchCache
+
 # App setup
 app = FastAPI()
 
@@ -34,6 +40,17 @@ app.add_middleware(
 
 API_KEY = os.getenv("API_KEY")
 logging.basicConfig(level=logging.INFO)
+
+@app.on_event("startup")
+async def startup_event():
+    db.connect(reuse_if_open=True)
+    db.create_tables([Feed, FeedSource, FeedCache, SearchCache], safe=True)
+    logging.info("Database tables created or verified.")
+    
+    # Load feeds into algos
+    for feed in Feed.select():
+        algos[feed.uri] = make_handler(feed.uri)
+    logging.info("Feeds loaded into algos.")
 
 
 # Routes

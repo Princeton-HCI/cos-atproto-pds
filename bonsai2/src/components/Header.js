@@ -42,7 +42,7 @@ const Header = ({
       const docRef = doc(
         db,
         process.env.REACT_APP_FIREBASE_FIRESTORE_COLLECTION,
-        feedId
+        feedId,
       );
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
@@ -68,24 +68,31 @@ const Header = ({
   };
 
   return (
-    <div className="textarea-container">
-      <h1>🌳 Bonsai2</h1>
-      <div className="did-chip">
-        <img
-          src={
-            profile?.avatar ||
-            "https://upload.wikimedia.org/wikipedia/commons/0/03/Twitter_default_profile_400x400.png"
-          }
-          alt="avatar"
-          className="did-avatar"
-        />
-        <span>{handle}</span>
-        <button className="manage-btn" onClick={() => handleManageOtherFeeds()}>
-          Manage feeds
-        </button>
-        <button className="signout-btn" onClick={() => handleSignOut()}>
-          Sign out
-        </button>
+    <div className="header-container">
+      <h1 className="header-title">🌳 Bonsai2</h1>
+      <div className="header-user-section">
+        <div className="did-chip">
+          <img
+            src={
+              profile?.avatar ||
+              "https://upload.wikimedia.org/wikipedia/commons/0/03/Twitter_default_profile_400x400.png"
+            }
+            alt="avatar"
+            className="did-avatar"
+          />
+          <span>{handle}</span>
+        </div>
+        <div className="header-buttons">
+          <button
+            className="manage-btn"
+            onClick={() => handleManageOtherFeeds()}
+          >
+            Manage feeds
+          </button>
+          <button className="signout-btn" onClick={() => handleSignOut()}>
+            Sign out
+          </button>
+        </div>
       </div>
 
       {showFeedsOverlay && !!feeds && (

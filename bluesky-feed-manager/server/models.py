@@ -1,4 +1,4 @@
-from peewee import Model, SqliteDatabase, TextField, ForeignKeyField, IntegerField
+from peewee import Model, SqliteDatabase, TextField, ForeignKeyField, IntegerField, FloatField
 
 db = SqliteDatabase('feeds.db')
 
@@ -9,6 +9,7 @@ class Feed(Model):
     display_name = TextField()
     description = TextField(null=True)
     avatar_path = TextField(null=True)
+    ranking_weights = TextField(null=True)  # JSON string of ranking weights
 
     class Meta:
         database = db
@@ -16,8 +17,9 @@ class Feed(Model):
 
 class FeedSource(Model):
     feed = ForeignKeyField(Feed, backref='sources', on_delete='CASCADE')
-    source_type = TextField()   # 'account_preference', 'topic_preference', 'account_filter', 'topic_filter'
+    source_type = TextField()   # 'profile_preference', 'topic_preference', 'profile_filter', 'topic_filter'
     identifier = TextField()    # e.g., 'did:plc:example.bsky.social' or 'sports'
+    weight = FloatField(default=0.5)  # numerical weight for this source
 
     class Meta:
         database = db

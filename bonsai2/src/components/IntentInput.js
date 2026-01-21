@@ -27,14 +27,77 @@ const IntentInput = ({ setFeedBlueprint, setFeedMetadata }) => {
             "Content-Type": "application/json",
             "x-api-key": process.env.REACT_APP_FEED_API_KEY,
           },
-        }
+        },
       );
 
       clearInterval(interval);
       setProgress(100);
 
       if (res.data) {
-        setFeedBlueprint(res.data.ruleset.blueprint);
+        // Transform old format to new standardized format
+        const oldBlueprint = res.data.ruleset.blueprint;
+        const newBlueprint = {};
+
+        // Transform topics -> topic_preferences with weight
+        if (oldBlueprint.topics) {
+          newBlueprint.topic_preferences = oldBlueprint.topics.map((t) => ({
+            name: t.name,
+            weight: t.priority || 1.0,
+          }));
+        }
+
+        // Transform suggested_accounts -> profile_preferences with weight
+        if (oldBlueprint.suggested_accounts) {
+          newBlueprint.profile_preferences =
+            oldBlueprint.suggested_accounts.map((did) => ({
+              did,
+              weight: 0.5,
+            }));
+        }
+
+        // Transform filters.limit_posts_about -> topic_filters with weight
+        if (oldBlueprint.filters?.limit_posts_about) {
+          newBlueprint.topic_filters =
+            oldBlueprint.filters.limit_posts_about.map((name) => ({
+              name,
+              weight: 0.5,
+            }));
+        }
+
+        // Transform filters.limit_posts_from -> profile_filters with weight
+        if (oldBlueprint.filters?.limit_posts_from) {
+          newBlueprint.profile_filters =
+            oldBlueprint.filters.limit_posts_from.map((did) => ({
+              did,
+              weight: 0.5,
+            }));
+        }
+
+        // Copy over ranking_weights (transform old to new format), original_prompt, generated_at
+        if (oldBlueprint.ranking_weights) {
+          // Transform old weights to new format
+          const oldWeights = oldBlueprint.ranking_weights;
+          newBlueprint.ranking_weights = {
+            relevance: oldWeights.focused || oldWeights.balanced || 0.5,
+            popularity: oldWeights.trending || 0.5,
+            recency: oldWeights.fresh || 0.5,
+          };
+        } else {
+          // Default weights
+          newBlueprint.ranking_weights = {
+            relevance: 0.5,
+            popularity: 0.3,
+            recency: 0.2,
+          };
+        }
+        if (oldBlueprint.original_prompt) {
+          newBlueprint.original_prompt = oldBlueprint.original_prompt;
+        }
+        if (oldBlueprint.generated_at) {
+          newBlueprint.generated_at = oldBlueprint.generated_at;
+        }
+
+        setFeedBlueprint(newBlueprint);
         const feedMetadata = { ...res.data.ruleset };
         delete feedMetadata.blueprint;
         setFeedMetadata(feedMetadata);

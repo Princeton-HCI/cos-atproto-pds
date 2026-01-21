@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from server.models import Feed, FeedSource, FeedCache, SearchCache
 from collections import defaultdict
 import random
+import math
 
 SEARCH_CACHE_TTL = 30  # 30 seconds for search results
 RESPONSE_LIMIT = 10 # number of posts to be received from api response
@@ -199,7 +200,7 @@ def extract_filters(feed_uri: str):
     blocked_dids = set()
     banned_keywords = set()
     for r in rows:
-        if r.source_type == "account_filter":
+        if r.source_type == "profile_filter":
             blocked_dids.add(r.identifier)
         if r.source_type == "topic_filter":
             banned_keywords.add(r.identifier.lower())
@@ -222,6 +223,80 @@ def should_block_post(full_post: dict, blocked_dids: set, banned_keywords: set) 
             return True
 
     return False
+
+def get_ranking_weights(feed_uri: str) -> dict:
+    """Get ranking weights for a feed, with defaults."""
+    try:
+        feed = Feed.get(Feed.uri == feed_uri)
+        if feed.ranking_weights:
+            return json.loads(feed.ranking_weights)
+    except:
+        pass
+    # Default weights (must sum to 1.0)
+    return {"relevance": 0.5, "popularity": 0.3, "recency": 0.2}
+
+def compute_relevance_score(full_post: dict, topic_preferences: list, profile_preferences: set) -> float:
+    """Compute relevance score based on topic/profile match."""
+    score = 0.0
+    
+    # Check if post is from a preferred profile
+    author_did = full_post.get("author", {}).get("did")
+    if author_did and author_did in profile_preferences:
+        score += 1.0
+    
+    # Check topic relevance using simple text matching
+    text = full_post.get("record", {}).get("text", "").lower()
+    if text:
+        for topic_pref in topic_preferences:
+            topic_name = topic_pref["name"].lower()
+            topic_weight = topic_pref["weight"]
+            if topic_name in text:
+                score += topic_weight
+    
+    return min(score, 1.0)  # Cap at 1.0
+
+def compute_ranking_score(full_post: dict, post_time: float, now: float, 
+                         ranking_weights: dict, topic_preferences: list, 
+                         profile_preferences: set) -> float:
+    """Compute composite ranking score based on relevance, popularity, and recency."""
+    
+    # Relevance score (0-1)
+    relevance = compute_relevance_score(full_post, topic_preferences, profile_preferences)
+    
+    # Popularity score (0-1) - based on engagement metrics
+    like_count = full_post.get("likeCount", 0)
+    reply_count = full_post.get("replyCount", 0)
+    repost_count = full_post.get("repostCount", 0)
+    quote_count = full_post.get("quoteCount", 0)
+    
+    # Total engagement
+    total_engagement = like_count + (reply_count * 2) + (repost_count * 3) + (quote_count * 2)
+    # Normalize using log scale (caps around 1.0 for ~100+ engagements)
+    popularity = min(math.log1p(total_engagement) / 5.0, 1.0)
+    
+    # Recency score (0-1) - exponential decay over 48 hours
+    age_seconds = now - post_time
+    recency = math.exp(-age_seconds / (MAX_AGE_SECONDS / 3))  # Decay over ~16 hours to 0.05
+    recency = max(0.0, min(recency, 1.0))
+    
+    # Weighted combination
+    w_relevance = ranking_weights.get("relevance", 0.5)
+    w_popularity = ranking_weights.get("popularity", 0.5)
+    w_recency = ranking_weights.get("recency", 0.5)
+    
+    # Normalize weights to sum to 1
+    total_weight = w_relevance + w_popularity + w_recency
+    if total_weight > 0:
+        w_relevance /= total_weight
+        w_popularity /= total_weight
+        w_recency /= total_weight
+    else:
+        # If all weights are 0, use equal weighting
+        w_relevance = w_popularity = w_recency = 1.0 / 3.0
+    
+    score = (relevance * w_relevance) + (popularity * w_popularity) + (recency * w_recency)
+    
+    return score
 
 # Feed handler factory
 def make_handler(feed_uri: str):
@@ -253,6 +328,18 @@ def make_handler(feed_uri: str):
             .where(Feed.uri == feed_uri)
         )
 
+        # Get ranking weights for this feed
+        ranking_weights = get_ranking_weights(feed_uri)
+        
+        # Build lists for relevance computation
+        topic_preferences = []
+        profile_preferences = set()
+        for src in sources:
+            if src.source_type == "topic_preference":
+                topic_preferences.append({"name": src.identifier, "weight": src.weight})
+            elif src.source_type == "profile_preference":
+                profile_preferences.add(src.identifier)
+
         # Load blacklist rules
         blocked_dids, banned_keywords = extract_filters(feed_uri)
 
@@ -263,7 +350,7 @@ def make_handler(feed_uri: str):
         tasks = []
         seen_queries = set()
         for src in sources:
-            if src.source_type == "account_preference":
+            if src.source_type == "profile_preference":
                 tasks.append(fetch_author_posts(src.identifier, limit))
             elif src.source_type == "topic_preference":
                 if src.identifier not in seen_queries:
@@ -320,17 +407,24 @@ def make_handler(feed_uri: str):
                     continue
                 author_counts[author_did] += 1
 
-            # Store full_post with URI and timestamp for sorting
+            # Compute ranking score
+            rank_score = compute_ranking_score(
+                full_post, post_time, now, ranking_weights, 
+                topic_preferences, profile_preferences
+            )
+
+            # Store full_post with URI, timestamp, and rank score for sorting
             filtered_posts.append({
                 "uri": p["uri"],
-                "timestamp": post_time
+                "timestamp": post_time,
+                "rank_score": rank_score
             })
 
             if len(filtered_posts) >= FEED_LIMIT:
                 break
 
-        # Sort posts by recency (newest first)
-        filtered_posts.sort(key=lambda x: x["timestamp"], reverse=True)
+        # Sort posts by ranking score (highest first), then by recency
+        filtered_posts.sort(key=lambda x: (x["rank_score"], x["timestamp"]), reverse=True)
 
         # Compute oldest timestamp for cache validation
         oldest_timestamp = None

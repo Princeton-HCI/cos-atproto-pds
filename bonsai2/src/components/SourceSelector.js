@@ -11,7 +11,7 @@ const SourceSelector = ({
   feedBlueprint,
   setFeedBlueprint,
 }) => {
-  const [sources, setSources] = useState([]);
+  const [sources, setSources] = useState([]); // stores {id, weight}
   const [profiles, setProfiles] = useState({}); // store fetched profile info keyed by DID
 
   // Populate sources from feedBlueprint
@@ -20,13 +20,25 @@ const SourceSelector = ({
 
     let initialSources = [];
     if (forPreferences) {
-      const topics = feedBlueprint.topics?.map((t) => t.name) || [];
-      const accounts = feedBlueprint.suggested_accounts || [];
+      const topics = (feedBlueprint.topic_preferences || []).map((t) => ({
+        id: t.name,
+        weight: t.weight ?? 0.5,
+      }));
+      const accounts = (feedBlueprint.profile_preferences || []).map((p) => ({
+        id: p.did,
+        weight: p.weight ?? 0.5,
+      }));
       initialSources = [...topics, ...accounts];
     } else {
-      const about = feedBlueprint.filters?.limit_posts_about || [];
-      const from = feedBlueprint.filters?.limit_posts_from || [];
-      initialSources = [...about, ...from];
+      const topics = (feedBlueprint.topic_filters || []).map((t) => ({
+        id: t.name,
+        weight: t.weight ?? 0.5,
+      }));
+      const profiles = (feedBlueprint.profile_filters || []).map((p) => ({
+        id: p.did,
+        weight: p.weight ?? 0.5,
+      }));
+      initialSources = [...topics, ...profiles];
     }
 
     setSources(initialSources);
@@ -35,7 +47,9 @@ const SourceSelector = ({
   // Fetch profile info for any DID that doesn't have it yet
   useEffect(() => {
     const fetchProfiles = async () => {
-      const dids = sources.filter((src) => src.startsWith("did:"));
+      const dids = sources
+        .filter((src) => src.id.startsWith("did:"))
+        .map((src) => src.id);
       for (const did of dids) {
         if (!profiles[did]) {
           const profile = await getProfile(did);
@@ -51,10 +65,6 @@ const SourceSelector = ({
     setFeedBlueprint((prev) => ({
       ...prev,
       ...data,
-      filters: {
-        ...(prev?.filters || {}),
-        ...(data.filters || {}),
-      },
     }));
   };
 
@@ -71,23 +81,21 @@ const SourceSelector = ({
         return;
       }
 
-      setSources((prev) => [...prev, did]);
+      setSources((prev) => [...prev, { id: did, weight: 0.5 }]);
 
       if (forPreferences) {
         updateSuggestions({
-          suggested_accounts: [
-            ...(feedBlueprint.suggested_accounts || []),
-            did,
+          profile_preferences: [
+            ...(feedBlueprint.profile_preferences || []),
+            { did, weight: 0.5 },
           ],
         });
       } else {
         updateSuggestions({
-          filters: {
-            limit_posts_from: [
-              ...(feedBlueprint.filters?.limit_posts_from || []),
-              did,
-            ],
-          },
+          profile_filters: [
+            ...(feedBlueprint.profile_filters || []),
+            { did, weight: 0.5 },
+          ],
         });
       }
 
@@ -95,23 +103,21 @@ const SourceSelector = ({
     }
 
     // Topic/phrase
-    setSources((prev) => [...prev, normalized]);
+    setSources((prev) => [...prev, { id: normalized, weight: 0.5 }]);
 
     if (forPreferences) {
       updateSuggestions({
-        topics: [
-          ...(feedBlueprint.topics || []),
-          { name: normalized, priority: 1.0 },
+        topic_preferences: [
+          ...(feedBlueprint.topic_preferences || []),
+          { name: normalized, weight: 0.5 },
         ],
       });
     } else {
       updateSuggestions({
-        filters: {
-          limit_posts_about: [
-            ...(feedBlueprint.filters?.limit_posts_about || []),
-            normalized,
-          ],
-        },
+        topic_filters: [
+          ...(feedBlueprint.topic_filters || []),
+          { name: normalized, weight: 0.5 },
+        ],
       });
     }
   };
@@ -122,22 +128,61 @@ const SourceSelector = ({
 
     if (forPreferences) {
       updateSuggestions({
-        topics: (feedBlueprint.topics || []).filter((t) => t.name !== removed),
-        suggested_accounts: (feedBlueprint.suggested_accounts || []).filter(
-          (acc) => acc !== removed
+        topic_preferences: (feedBlueprint.topic_preferences || []).filter(
+          (t) => t.name !== removed.id,
+        ),
+        profile_preferences: (feedBlueprint.profile_preferences || []).filter(
+          (p) => p.did !== removed.id,
         ),
       });
     } else {
       updateSuggestions({
-        filters: {
-          limit_posts_about: (
-            feedBlueprint.filters?.limit_posts_about || []
-          ).filter((x) => x !== removed),
-          limit_posts_from: (
-            feedBlueprint.filters?.limit_posts_from || []
-          ).filter((x) => x !== removed),
-        },
+        topic_filters: (feedBlueprint.topic_filters || []).filter(
+          (t) => t.name !== removed.id,
+        ),
+        profile_filters: (feedBlueprint.profile_filters || []).filter(
+          (p) => p.did !== removed.id,
+        ),
       });
+    }
+  };
+
+  const handleWeightChange = (index, newWeight) => {
+    const updatedSources = [...sources];
+    updatedSources[index] = { ...updatedSources[index], weight: newWeight };
+    setSources(updatedSources);
+
+    const source = updatedSources[index];
+    const isDid = source.id.startsWith("did:");
+
+    if (forPreferences) {
+      if (isDid) {
+        updateSuggestions({
+          profile_preferences: (feedBlueprint.profile_preferences || []).map(
+            (p) => (p.did === source.id ? { ...p, weight: newWeight } : p),
+          ),
+        });
+      } else {
+        updateSuggestions({
+          topic_preferences: (feedBlueprint.topic_preferences || []).map((t) =>
+            t.name === source.id ? { ...t, weight: newWeight } : t,
+          ),
+        });
+      }
+    } else {
+      if (isDid) {
+        updateSuggestions({
+          profile_filters: (feedBlueprint.profile_filters || []).map((p) =>
+            p.did === source.id ? { ...p, weight: newWeight } : p,
+          ),
+        });
+      } else {
+        updateSuggestions({
+          topic_filters: (feedBlueprint.topic_filters || []).map((t) =>
+            t.name === source.id ? { ...t, weight: newWeight } : t,
+          ),
+        });
+      }
     }
   };
 
@@ -150,53 +195,124 @@ const SourceSelector = ({
       : `https://bsky.app/profile/${profile.did}`;
 
   return (
-    <Panel title={forPreferences ? "Get posts from" : "Limit posts related to"}>
+    <Panel title={forPreferences ? "Get posts from" : "Limit posts about"}>
       <small>
         <i>You can also add accounts by pasting their URLs!</i>
       </small>
+      <small style={{ display: "block", marginTop: "4px", color: "#666" }}>
+        💡 <strong>Tip:</strong> Use the sliders to adjust{" "}
+        {forPreferences
+          ? "how much each source influences your feed"
+          : "how strongly each filter is applied"}
+        . Higher values ={" "}
+        {forPreferences ? "more priority" : "stronger filtering"}.
+      </small>
 
-      <ul className="item-list">
-        {sources.map((src, i) => {
-          const profile = profiles[src]; // undefined for non-DID
-          const isDid = src.startsWith("did:");
-          const link = profile
-            ? formatProfileUrl(profile)
-            : !isDid
-            ? formatSearchUrl(src)
-            : null;
+      {sources.length > 0 && (
+        <ul className="item-list">
+          {sources.map((src, i) => {
+            const profile = profiles[src.id]; // undefined for non-DID
+            const isDid = src.id.startsWith("did:");
+            const link = profile
+              ? formatProfileUrl(profile)
+              : !isDid
+                ? formatSearchUrl(src.id)
+                : null;
 
-          return (
-            <li key={i} className="list-item">
-              {link ? (
-                <a
-                  href={link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="did-chip"
+            return (
+              <li key={i} className="list-item">
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    flex: 1,
+                    flexDirection: "column",
+                    width: "100%",
+                  }}
                 >
-                  {profile ? (
-                    <>
-                      <img
-                        src={profile.avatar}
-                        alt={profile.handle}
-                        className="did-avatar"
-                      />
-                      <span>{profile.handle}</span>
-                    </>
-                  ) : (
-                    <span>{src}</span>
-                  )}
-                </a>
-              ) : (
-                <span>{src}</span>
-              )}
-              <button className="icon-btn" onClick={() => handleRemove(i)}>
-                ✕
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      width: "100%",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    {link ? (
+                      <a
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="did-chip"
+                      >
+                        {profile ? (
+                          <>
+                            <img
+                              src={profile.avatar}
+                              alt={profile.handle}
+                              className="did-avatar"
+                            />
+                            <span>{profile.handle}</span>
+                          </>
+                        ) : (
+                          <span>{src.id}</span>
+                        )}
+                      </a>
+                    ) : (
+                      <span
+                        style={{
+                          wordBreak: "break-word",
+                          overflowWrap: "anywhere",
+                        }}
+                      >
+                        {src.id}
+                      </span>
+                    )}
+                    <button
+                      className="icon-btn"
+                      onClick={() => handleRemove(i)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      width: "100%",
+                    }}
+                    title={
+                      forPreferences
+                        ? "Higher weight = more influence on feed. 0 = ignore, 1 = maximum priority"
+                        : "Higher weight = stronger filter. 0 = allow, 1 = maximum filtering"
+                    }
+                  >
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={src.weight}
+                      onChange={(e) =>
+                        handleWeightChange(i, parseFloat(e.target.value))
+                      }
+                      style={{
+                        flex: 1,
+                      }}
+                    />
+                    <span style={{ minWidth: "35px", fontSize: "12px" }}>
+                      {src.weight.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       <div className="textarea-container">
         <input

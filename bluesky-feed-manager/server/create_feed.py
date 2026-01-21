@@ -3,6 +3,7 @@ from server.models import Feed, FeedSource
 from server.algos import algos
 from server.algos.feed import make_handler
 import os
+import json
 
 def create_feed(handle, password, hostname, record_name, display_name="", description="",
                 avatar_path=os.path.join(os.path.dirname(__file__), "avatar.png"),
@@ -38,6 +39,11 @@ def create_feed(handle, password, hostname, record_name, display_name="", descri
 
     feed_uri = response.uri
 
+    # Extract ranking weights from blueprint
+    ranking_weights_json = None
+    if blueprint and "ranking_weights" in blueprint:
+        ranking_weights_json = json.dumps(blueprint["ranking_weights"])
+
     # Save feed metadata locally
     data = {
         "handle": handle,
@@ -45,6 +51,7 @@ def create_feed(handle, password, hostname, record_name, display_name="", descri
         "display_name": display_name,
         "description": description,
         "avatar_path": avatar_path,
+        "ranking_weights": ranking_weights_json,
     }
 
     feed, created = Feed.get_or_create(
@@ -54,7 +61,7 @@ def create_feed(handle, password, hostname, record_name, display_name="", descri
 
     if not created:
         updated = False
-        for field in ["handle", "record_name", "display_name", "description", "avatar_path"]:
+        for field in ["handle", "record_name", "display_name", "description", "avatar_path", "ranking_weights"]:
             value = data.get(field)
             if value and getattr(feed, field) != value:
                 setattr(feed, field, value)
@@ -67,34 +74,40 @@ def create_feed(handle, password, hostname, record_name, display_name="", descri
         # Delete old sources for this feed
         FeedSource.delete().where(FeedSource.feed == feed).execute()
 
-        # Preferences (positive)
-        for topic in blueprint.get('topics', []):
+        # Topic Preferences (positive)
+        for topic in blueprint.get('topic_preferences', []):
             FeedSource.create(
                 feed=feed,
                 source_type='topic_preference',
-                identifier=topic['name']
+                identifier=topic['name'],
+                weight=topic.get('weight', 0.5)
             )
-        for account_did in blueprint.get('suggested_accounts', []):
+        
+        # Profile Preferences (positive)
+        for profile in blueprint.get('profile_preferences', []):
             FeedSource.create(
                 feed=feed,
-                source_type='account_preference',
-                identifier=account_did
+                source_type='profile_preference',
+                identifier=profile['did'],
+                weight=profile.get('weight', 0.5)
             )
 
-        # Filters (negative)
-        filters = blueprint.get("filters", {})
-
-        for keyword in filters.get("limit_posts_about", []):
+        # Topic Filters (negative)
+        for topic in blueprint.get('topic_filters', []):
             FeedSource.create(
                 feed=feed,
                 source_type='topic_filter',
-                identifier=keyword
+                identifier=topic['name'],
+                weight=topic.get('weight', 0.5)
             )
-        for blocked_did in filters.get("limit_posts_from", []):
+        
+        # Profile Filters (negative)
+        for profile in blueprint.get('profile_filters', []):
             FeedSource.create(
                 feed=feed,
-                source_type='account_filter',
-                identifier=blocked_did
+                source_type='profile_filter',
+                identifier=profile['did'],
+                weight=profile.get('weight', 0.5)
             )
 
     # Dynamically add handler to algos

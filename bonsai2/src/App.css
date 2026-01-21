@@ -15,6 +15,29 @@
   margin-right: 20%;
 }
 
+@media (max-width: 1024px) {
+  .ui-col {
+    margin-left: 10%;
+    margin-right: 10%;
+  }
+}
+
+@media (max-width: 768px) {
+  .ui-col {
+    margin-left: 5%;
+    margin-right: 5%;
+    padding: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .ui-col {
+    margin-left: 0;
+    margin-right: 0;
+    padding: 10px;
+  }
+}
+
 .panel {
   background: white;
   border-radius: 10px;
@@ -98,6 +121,70 @@
   border-radius: 50%;
 }
 
+/* Header styles */
+.header-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.header-title {
+  font-size: 32px;
+  margin: 0;
+}
+
+.header-user-section {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.header-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .header-title {
+    font-size: 28px;
+  }
+
+  .header-user-section {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .header-buttons {
+    width: 100%;
+  }
+
+  .manage-btn,
+  .signout-btn {
+    flex: 1;
+    min-width: 120px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-title {
+    font-size: 24px;
+  }
+
+  .header-buttons {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .manage-btn,
+  .signout-btn {
+    width: 100%;
+  }
+}
+
 /* Shared UI elements */
 .textarea {
   width: 100%;
@@ -106,23 +193,42 @@
   border-radius: 6px;
   border: 1px solid #ccc;
   resize: none;
+  box-sizing: border-box;
 }
 .textarea-container {
   display: flex;
   flex: 1;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
 }
+
+@media (max-width: 480px) {
+  .textarea-container {
+    flex-direction: column;
+  }
+
+  .textarea-label {
+    margin-top: 18px;
+    margin-bottom: 4px;
+  }
+}
+
 .textarea-label {
   margin-top: 18px;
   margin-bottom: 4px;
+  font-weight: 600;
 }
+
 .input {
   width: 100%;
-  padding: 8px;
+  padding: 10px 12px;
   border-radius: 6px;
   border: 1px solid #ccc;
   margin-top: 8px;
-  height: 20px;
+  min-height: 40px;
+  box-sizing: border-box;
+  font-size: 14px;
 }
 .primary-btn {
   background: #007aff;
@@ -150,6 +256,14 @@
 }
 .deploy-btn:hover {
   background: #0060d4;
+}
+
+@media (max-width: 480px) {
+  .primary-btn,
+  .deploy-btn {
+    padding: 10px 16px;
+    font-size: 14px;
+  }
 }
 
 .manage-btn {
@@ -201,9 +315,21 @@
   display: flex;
   flex-direction: row;
   justify-content: space-between;
+  gap: 16px;
 }
 .wedge {
   width: 16px;
+}
+
+@media (max-width: 768px) {
+  .couple {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .wedge {
+    display: none;
+  }
 }
 
 .item-list {
@@ -216,6 +342,12 @@
   border: 1px solid #e2e2e2;
   border-radius: 6px;
 }
+
+@media (max-width: 768px) {
+  .item-list {
+    padding: 3px;
+  }
+}
 .list-item {
   background-color: #ffffff;
   padding: 8px;
@@ -224,6 +356,32 @@
   display: flex;
   justify-content: space-between;
   margin: 6px;
+  min-width: 200px;
+  flex: 0 1 auto;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .list-item {
+    min-width: 150px;
+  }
+}
+
+@media (max-width: 480px) {
+  .list-item {
+    min-width: calc(100% - 6px);
+    flex: 1 1 100%;
+    margin: 3px;
+  }
+
+  .panel {
+    padding: 12px;
+  }
+
+  .panel-title {
+    font-size: 14px;
+  }
 }
 .list-item.danger {
   background: #ffe5e5;
@@ -288,6 +446,22 @@
   text-align: center;
   width: 90%;
   max-width: 400px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .loading-content {
+    padding: 1.5rem;
+    width: 85%;
+  }
+}
+
+@media (max-width: 480px) {
+  .loading-content {
+    padding: 1rem;
+    width: calc(100% - 32px);
+    margin: 16px;
+  }
 }
 
 .loading-text {
@@ -331,4 +505,27 @@
   padding-right: 8px;
   border-radius: 6px;
   cursor: pointer;
+}
+
+/* Info link styles */
+.infolink::before {
+  content: "?";
+  font-size: 60%;
+  font-family: sans-serif;
+  vertical-align: middle;
+  font-weight: bold;
+  text-align: center;
+  display: inline-block;
+  width: 1.8ex;
+  height: 1.8ex;
+  border-radius: 1ex;
+  color: #777;
+  background: white;
+  border: thin solid #777;
+}
+
+.infolink:hover::before {
+  color: white;
+  background: #777;
+  border-color: white;
 }

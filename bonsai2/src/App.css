@@ -512,20 +512,19 @@
   content: "?";
   font-size: 60%;
   font-family: sans-serif;
-  vertical-align: middle;
   font-weight: bold;
   text-align: center;
   display: inline-block;
   width: 1.8ex;
   height: 1.8ex;
+  line-height: 1.8ex;
   border-radius: 1ex;
+  padding-top: 1.5px;
   color: #777;
-  background: white;
   border: thin solid #777;
 }
 
 .infolink:hover::before {
-  color: white;
-  background: #777;
-  border-color: white;
+  color: #1255ad;
+  border-color: #1255ad;
 }

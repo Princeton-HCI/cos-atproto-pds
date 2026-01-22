@@ -580,7 +580,12 @@ The feed generator works by composing personalized feeds from multiple sources:
 - **Sources**: Each feed is built from author preferences (specific DIDs) and topic preferences (keyword/semantic searches).
 - **Collection**: Posts are fetched concurrently from author feeds and search APIs (both text and vector-based semantic search).
 - **Filtering**: Posts are deduplicated, filtered by recency (48 hours), author-per-post limits, and blacklist rules.
-- **Sorting**: Posts are ranked by creation timestamp (newest first) and served to the user.
+- **Ranking**: Posts are ranked using a weighted combination of three factors:
+  - **Relevance** (topic/profile match scores using semantic embeddings)
+  - **Popularity** (engagement metrics: likes, reposts, replies with log scaling)
+  - **Recency** (exponential decay based on post age)
+  
+  Users can customize the weight distribution (default: 50% relevance, 30% popularity, 20% recency) to prioritize what matters most for their feed.
 
 **Performance Optimizations:**
 

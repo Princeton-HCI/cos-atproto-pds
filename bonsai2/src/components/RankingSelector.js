@@ -66,6 +66,14 @@ const RankingSelector = ({ feedBlueprint, setFeedBlueprint }) => {
       });
     }
 
+    // Normalize to ensure exact sum of 1.0 (fix floating-point precision issues)
+    const sum = Object.values(newWeights).reduce((s, v) => s + v, 0);
+    if (sum !== 1.0) {
+      Object.keys(newWeights).forEach((k) => {
+        newWeights[k] = newWeights[k] / sum;
+      });
+    }
+
     setFeedBlueprint((prev) => ({
       ...prev,
       ranking_weights: newWeights,

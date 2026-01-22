@@ -22,6 +22,9 @@ allowed_origins = [ # Set your allowed origins here
     "https://bonsai.princetonhci.social",
     "http://bonsai2.princetonhci.social",
     "https://bonsai2.princetonhci.social",
+
+    "https://getbonsai.org",
+    "http://getbonsai.org"
 ]
 
 app.add_middleware(

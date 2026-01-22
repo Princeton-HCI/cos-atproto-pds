@@ -92,25 +92,26 @@ async def generate_feed_ruleset(query: str) -> dict:
     "record_name": string,
     "display_name": string,
     "description": string,
-    "topics": [
-        {{ "name": string, "priority": float between 0.4 and 1.0 }}
+    "topic_preferences": [
+        {{ "name": string, "weight": float between 0.3 and 1.0 }}
     ],
-    "filters": {{
-        "limit_posts_about": [list of topics or concepts the user wants to avoid]
-    }},
+    "topic_filters": [
+        {{ "name": string, "weight": float (0.5 default) }}
+    ],
     "ranking_weights": {{
-        "focused": float,
-        "fresh": float,
-        "balanced": float,
-        "trending": float
+        "relevance": float,
+        "popularity": float,
+        "recency": float
     }}
     }}
 
     Rules:
-    - Topics should represent meaningful subjects, entities, themes, or interests from the user's prompt. Keep to 5 topics, 1-2 words each.
+    - topic_preferences should represent meaningful subjects, entities, themes, or interests from the user's prompt. Keep to 5 topics, 1-2 words each.
+    - topic_filters are topics or concepts the user wants to avoid or limit. Put these in topic_filters array.
     - Avoid generic action words unless actually thematic to the primary interests mentioned.
     - Display name must be less than 5 words.
     - record_name must be lowercase-with-hyphens, filesystem-safe, and contain no spaces.
+    - ranking_weights MUST sum to exactly 1.0. Use defaults: relevance=0.5, popularity=0.3, recency=0.2 unless user specifies otherwise.
     - Output ONLY valid JSON.
     """
 
@@ -130,11 +131,32 @@ async def generate_feed_ruleset(query: str) -> dict:
     feed_fields["original_prompt"] = query
     feed_fields["generated_at"] = datetime.datetime.utcnow().isoformat()
 
+    # Normalize ranking_weights to ensure they sum to exactly 1.0
+    if "ranking_weights" in feed_fields:
+        weights = feed_fields["ranking_weights"]
+        total = weights.get("relevance", 0.5) + weights.get("popularity", 0.3) + weights.get("recency", 0.2)
+        if total > 0:
+            weights["relevance"] = weights.get("relevance", 0.5) / total
+            weights["popularity"] = weights.get("popularity", 0.3) / total
+            weights["recency"] = weights.get("recency", 0.2) / total
+    else:
+        # Set defaults
+        feed_fields["ranking_weights"] = {
+            "relevance": 0.5,
+            "popularity": 0.3,
+            "recency": 0.2
+        }
+
     # Fetch suggested accounts in parallel
-    topic_queries = [t["name"] for t in feed_fields.get("topics", [])]
+    topic_queries = [t["name"] for t in feed_fields.get("topic_preferences", [])]
     results = await asyncio.gather(*(fetch_top_authors(q) for q in topic_queries))
     suggested_accounts = set(did for sublist in results for did in sublist)
-    feed_fields["suggested_accounts"] = list(suggested_accounts)
+    
+    # Add profile_preferences with default weight
+    if suggested_accounts:
+        feed_fields["profile_preferences"] = [
+            {"did": did, "weight": 0.5} for did in suggested_accounts
+        ]
 
     # Remove name/description from blueprint
     blueprint = dict(feed_fields)

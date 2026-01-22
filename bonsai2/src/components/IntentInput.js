@@ -34,68 +34,23 @@ const IntentInput = ({ setFeedBlueprint, setFeedMetadata }) => {
       setProgress(100);
 
       if (res.data) {
-        // Transform old format to new standardized format
-        const oldBlueprint = res.data.ruleset.blueprint;
-        const newBlueprint = {};
+        const blueprint = res.data.ruleset.blueprint;
 
-        // Transform topics -> topic_preferences with weight
-        if (oldBlueprint.topics) {
-          newBlueprint.topic_preferences = oldBlueprint.topics.map((t) => ({
-            name: t.name,
-            weight: t.priority || 1.0,
-          }));
-        }
-
-        // Transform suggested_accounts -> profile_preferences with weight
-        if (oldBlueprint.suggested_accounts) {
-          newBlueprint.profile_preferences =
-            oldBlueprint.suggested_accounts.map((did) => ({
-              did,
-              weight: 0.5,
-            }));
-        }
-
-        // Transform filters.limit_posts_about -> topic_filters with weight
-        if (oldBlueprint.filters?.limit_posts_about) {
-          newBlueprint.topic_filters =
-            oldBlueprint.filters.limit_posts_about.map((name) => ({
-              name,
-              weight: 0.5,
-            }));
-        }
-
-        // Transform filters.limit_posts_from -> profile_filters with weight
-        if (oldBlueprint.filters?.limit_posts_from) {
-          newBlueprint.profile_filters =
-            oldBlueprint.filters.limit_posts_from.map((did) => ({
-              did,
-              weight: 0.5,
-            }));
-        }
-
-        // Copy over ranking_weights (transform old to new format), original_prompt, generated_at
-        if (oldBlueprint.ranking_weights) {
-          // Transform old weights to new format
-          const oldWeights = oldBlueprint.ranking_weights;
-          newBlueprint.ranking_weights = {
-            relevance: oldWeights.focused || oldWeights.balanced || 0.5,
-            popularity: oldWeights.trending || 0.5,
-            recency: oldWeights.fresh || 0.5,
-          };
-        } else {
-          // Default weights
-          newBlueprint.ranking_weights = {
+        // Backend now sends the correct structure directly
+        // Just ensure all expected fields exist with defaults
+        const newBlueprint = {
+          topic_preferences: blueprint.topic_preferences || [],
+          profile_preferences: blueprint.profile_preferences || [],
+          topic_filters: blueprint.topic_filters || [],
+          profile_filters: blueprint.profile_filters || [],
+          ranking_weights: blueprint.ranking_weights || {
             relevance: 0.5,
             popularity: 0.3,
             recency: 0.2,
-          };
-        }
-        if (oldBlueprint.original_prompt) {
-          newBlueprint.original_prompt = oldBlueprint.original_prompt;
-        }
-        if (oldBlueprint.generated_at) {
-          newBlueprint.generated_at = oldBlueprint.generated_at;
-        }
+          },
+          original_prompt: blueprint.original_prompt,
+          generated_at: blueprint.generated_at,
+        };
 
         setFeedBlueprint(newBlueprint);
         const feedMetadata = { ...res.data.ruleset };

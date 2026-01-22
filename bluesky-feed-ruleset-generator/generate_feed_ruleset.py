@@ -42,7 +42,7 @@ async def fetch_top_authors(query: str) -> list[str]:
     async with httpx.AsyncClient(timeout=30.0) as client:
         async def bluesky_search():
             url = "https://public.api.bsky.app/xrpc/app.bsky.actor.searchActors"
-            params = {"q": query, "limit": 4}
+            params = {"q": query, "limit": 2}
             r = await client.get(url, params=params)
             if r.status_code == 200:
                 data = r.json()

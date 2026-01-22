@@ -120,7 +120,7 @@ sudo pip3 install --upgrade --force-reinstall --ignore-installed \
     numpy \
     onnxruntime \
     transformers \
-    fastapi \
+    fastapi
     uvicorn \
     --break-system-packages
 ```

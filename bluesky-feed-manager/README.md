@@ -109,7 +109,9 @@ sudo apt install -y \
     debian-archive-keyring \
     apt-transport-https \
     curl \
-    sqlite3
+    sqlite3 \
+    htop \
+    iotop \
 sudo pip3 install --upgrade --force-reinstall --ignore-installed \
     python-dotenv \
     atproto \
@@ -584,7 +586,7 @@ The feed generator works by composing personalized feeds from multiple sources:
   - **Relevance** (topic/profile match scores using semantic embeddings)
   - **Popularity** (engagement metrics: likes, reposts, replies with log scaling)
   - **Recency** (exponential decay based on post age)
-  
+
   Users can customize the weight distribution (default: 50% relevance, 30% popularity, 20% recency) to prioritize what matters most for their feed.
 
 **Performance Optimizations:**

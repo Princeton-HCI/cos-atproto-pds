@@ -251,7 +251,7 @@ cd cos-atproto-pds/bluesky-pds
 The files included are:
 
 - `ingest.py` — ATProto firehose ingestion (posts)
-- `prune.py` — weekly pruning of oldest posts (deletes 3M every 7 days)
+- `prune.py` — automatic disk-based pruning (deletes 50% of oldest posts when disk usage exceeds 75%)
 - `identify.py` — author discovery and profile aggregation
 - `embed_posts.py` — generates embeddings for posts
 - `embed_authors.py` — generates embeddings for authors
@@ -282,8 +282,8 @@ nano .env
 - `DB_NAME` – The name of the PostgreSQL database created on the VM.
 - `DB_USER` – The PostgreSQL user/role created on the VM for the application.
 - `DB_PASSWORD` – The password for the PostgreSQL user created on the VM.
-- `PRUNE_DELETE_COUNT` – The number of oldest posts to delete weekly (default: 3000000).
-- `PRUNE_INTERVAL_SEC` – The number of seconds between prune cycles (default: 604800, i.e., 7 days).
+- `DISK_THRESHOLD_PERCENT` – Disk usage percentage that triggers automatic pruning (default: 75.0). When exceeded, 50% of oldest posts are deleted.
+- `CHECK_INTERVAL_SEC` – How often to check disk usage in seconds (default: 1800, i.e., 30 minutes).
 
 Once all the environment variables are in place, run the python scripts manually in order, or wait until we introduce the shell method of running each service in the next step.
 

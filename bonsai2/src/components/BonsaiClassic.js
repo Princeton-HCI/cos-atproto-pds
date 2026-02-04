@@ -149,11 +149,27 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
     setIsDeploying(true);
     setDeployProgress(0);
 
-    try {
-      const interval = setInterval(() => {
-        setDeployProgress((prev) => (prev < 95 ? prev + 5 : prev));
-      }, 2000);
+    // Set up smooth 20-second progress animation
+    const totalTime = 20000; // 20 seconds
+    const startTime = Date.now();
+    let apiComplete = false;
 
+    const progressInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = (elapsed / totalTime) * 100;
+
+      if (elapsed >= totalTime && apiComplete) {
+        clearInterval(progressInterval);
+        setDeployProgress(100);
+        setTimeout(() => {
+          setIsDeploying(false);
+        }, 500);
+      } else {
+        setDeployProgress(Math.min(progress, 99));
+      }
+    }, 100);
+
+    try {
       // Convert classic blueprint back to standard format for API
       const standardBlueprint = {
         topic_preferences: (feed.blueprint.topic_preferences || []).map(
@@ -207,9 +223,7 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
         },
       );
 
-      clearInterval(interval);
-      setDeployProgress(100);
-
+      apiComplete = true;
       console.log("Feed deployed:", response.data);
 
       // Update feeds to set isActive property
@@ -222,11 +236,6 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
 
       setActiveFeedId(feedId);
       localStorage.setItem(ACTIVE_FEED_KEY, feedId);
-
-      // Hide modal after showing 100% briefly
-      setTimeout(() => {
-        setIsDeploying(false);
-      }, 800);
     } catch (err) {
       console.error("Failed to deploy feed:", err);
       setIsDeploying(false);
@@ -245,11 +254,27 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
     setIsDeploying(true);
     setDeployProgress(0);
 
-    try {
-      const interval = setInterval(() => {
-        setDeployProgress((prev) => (prev < 95 ? prev + 5 : prev));
-      }, 2000);
+    // Set up smooth 20-second progress animation
+    const totalTime = 20000; // 20 seconds
+    const startTime = Date.now();
+    let apiComplete = false;
 
+    const progressInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = (elapsed / totalTime) * 100;
+
+      if (elapsed >= totalTime && apiComplete) {
+        clearInterval(progressInterval);
+        setDeployProgress(100);
+        setTimeout(() => {
+          setIsDeploying(false);
+        }, 500);
+      } else {
+        setDeployProgress(Math.min(progress, 99));
+      }
+    }, 100);
+
+    try {
       // Convert classic blueprint back to standard format for API
       const standardBlueprint = {
         topic_preferences: (feedBlueprint.topic_preferences || []).map(
@@ -309,9 +334,7 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
         },
       );
 
-      clearInterval(interval);
-      setDeployProgress(100);
-
+      apiComplete = true;
       console.log("Feed deployed:", response.data);
 
       // Update feeds to set isActive property
@@ -342,11 +365,6 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
 
       setActiveFeedId(feedId);
       localStorage.setItem(ACTIVE_FEED_KEY, feedId);
-
-      // Hide modal after showing 100% briefly
-      setTimeout(() => {
-        setIsDeploying(false);
-      }, 800);
     } catch (err) {
       console.error("Failed to deploy feed:", err);
       setIsDeploying(false);
@@ -479,7 +497,7 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
       console.error("Failed to generate feed:", err);
       setError("Failed to get feed suggestions. Try again.");
     } finally {
-      setTimeout(() => setIsGenerating(false), 500);
+      setIsGenerating(false);
     }
   };
 

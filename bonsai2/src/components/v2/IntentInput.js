@@ -1,6 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
-import Panel from "./Panel";
+import Panel from "../Panel";
 
 const IntentInput = ({ setFeedBlueprint, setFeedMetadata }) => {
   const [text, setText] = useState("");

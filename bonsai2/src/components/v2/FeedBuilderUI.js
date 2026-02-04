@@ -1,14 +1,14 @@
 import { useState } from "react";
 import axios from "axios";
 import { doc, setDoc } from "firebase/firestore";
-import { db } from "../utils/firebase";
+import { db } from "../../utils/firebase";
 import IntentInput from "./IntentInput";
 import SourceSelector from "./SourceSelector";
 import RankingSelector from "./RankingSelector";
 import MetadataEditor from "./MetadataEditor";
-import Header from "./Header";
+import Header from "../Header";
 
-const FeedBuilderUI = ({ credentials, setCredentials }) => {
+const FeedBuilderUI = ({ credentials, setCredentials, onToggleUI }) => {
   const [feedBlueprint, setFeedBlueprint] = useState({});
   const [feedMetadata, setFeedMetadata] = useState("");
   const [loading, setLoading] = useState(false);
@@ -37,7 +37,7 @@ const FeedBuilderUI = ({ credentials, setCredentials }) => {
         password: credentials.password,
         hostname:
           process.env.REACT_APP_BLUESKY_FEED_MANAGER_API.split(
-            "https://"
+            "https://",
           )[1].split("/api")[0],
         record_name: feedMetadata.record_name,
         display_name: feedMetadata.display_name,
@@ -53,7 +53,7 @@ const FeedBuilderUI = ({ credentials, setCredentials }) => {
             "Content-Type": "application/json",
             "x-api-key": process.env.REACT_APP_FEED_API_KEY,
           },
-        }
+        },
       );
 
       clearInterval(interval);
@@ -73,7 +73,7 @@ const FeedBuilderUI = ({ credentials, setCredentials }) => {
 
       await setDoc(
         doc(db, process.env.REACT_APP_FIREBASE_FIRESTORE_COLLECTION, feedId),
-        feedBlueprint
+        feedBlueprint,
       );
     } catch (err) {
       console.error("Failed to deploy feed:", err);
@@ -91,6 +91,8 @@ const FeedBuilderUI = ({ credentials, setCredentials }) => {
           handle={credentials?.handle}
           setFeedBlueprint={setFeedBlueprint}
           setFeedMetadata={setFeedMetadata}
+          onToggleUI={onToggleUI}
+          uiMode="bonsai2"
         />
         <IntentInput
           setFeedBlueprint={setFeedBlueprint}

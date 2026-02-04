@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import Panel from "./Panel";
+import Panel from "../Panel";
 import {
   extractHandleOrDid,
   resolveDidFromHandleOrDid,
   getProfile,
-} from "../utils/bluesky";
+} from "../../utils/bluesky";
 
 const SourceSelector = ({
   forPreferences = true,

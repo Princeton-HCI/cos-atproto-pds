@@ -8,6 +8,8 @@ const Header = ({
   handle,
   setFeedBlueprint,
   setFeedMetadata,
+  onToggleUI,
+  uiMode = "bonsai2",
 }) => {
   const [profile, setProfile] = useState(null);
   const [feeds, setFeeds] = useState([]);
@@ -69,7 +71,31 @@ const Header = ({
 
   return (
     <div className="header-container">
-      <h1 className="header-title">🌳 Bonsai2</h1>
+      <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+        <h1 className="header-title">
+          {uiMode === "classic" ? "🌳 Bonsai Classic" : "🌳 Bonsai2"}
+        </h1>
+        {onToggleUI && (
+          <button
+            className="toggle-ui-btn"
+            onClick={onToggleUI}
+            style={{
+              padding: "8px 16px",
+              background: "#e0e0e0",
+              border: "none",
+              borderRadius: "20px",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "500",
+              transition: "all 0.2s ease",
+            }}
+            onMouseOver={(e) => (e.target.style.background = "#d0d0d0")}
+            onMouseOut={(e) => (e.target.style.background = "#e0e0e0")}
+          >
+            Switch to {uiMode === "classic" ? "Bonsai2" : "Bonsai Classic"}
+          </button>
+        )}
+      </div>
       <div className="header-user-section">
         <div className="did-chip">
           <img
@@ -83,12 +109,14 @@ const Header = ({
           <span>{handle}</span>
         </div>
         <div className="header-buttons">
-          <button
-            className="manage-btn"
-            onClick={() => handleManageOtherFeeds()}
-          >
-            Manage feeds
-          </button>
+          {uiMode === "bonsai2" && (
+            <button
+              className="manage-btn"
+              onClick={() => handleManageOtherFeeds()}
+            >
+              Manage feeds
+            </button>
+          )}
           <button className="signout-btn" onClick={() => handleSignOut()}>
             Sign out
           </button>

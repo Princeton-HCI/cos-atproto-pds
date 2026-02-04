@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import Panel from "./Panel";
-import { idToFeedUrl } from "../utils/bluesky";
+import Panel from "../Panel";
+import { idToFeedUrl } from "../../utils/bluesky";
 
 const MetadataEditor = ({ feedMetadata, setFeedMetadata }) => {
   const [localData, setLocalData] = useState({

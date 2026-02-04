@@ -36,16 +36,6 @@ const RankingPresets = ({ rankingStyle, handleRankingPreset }) => {
         marginBottom: "20px",
       }}
     >
-      <h3
-        style={{
-          margin: "0 0 20px 0",
-          fontSize: "18px",
-          fontWeight: "600",
-          color: "#1f2937",
-        }}
-      >
-        Ranking Style
-      </h3>
       <h2 style={{ margin: "0 0 8px 0", fontSize: "20px", fontWeight: "600" }}>
         Feed Ranking Style
       </h2>

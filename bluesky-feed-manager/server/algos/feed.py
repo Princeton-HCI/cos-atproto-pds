@@ -11,8 +11,10 @@ from server.models import Feed, FeedSource, FeedCache, SearchCache
 from collections import defaultdict
 import random
 import math
+import hashlib
 
 SEARCH_CACHE_TTL = 30  # 30 seconds for search results
+FEED_CACHE_TTL = 300  # 5 minutes for long-term feed cache
 RESPONSE_LIMIT = 10 # number of posts to be received from api response
 FEED_LIMIT = 100 # number of total posts in a feed
 MAX_PER_AUTHOR = 10 # max posts per author in a feed
@@ -26,6 +28,36 @@ TOKENIZER_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
 tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_NAME)
 session = ort.InferenceSession(MODEL_PATH, providers=["CPUExecutionProvider"])
+
+def compute_blueprint_hash(feed_uri: str) -> str:
+    """Compute a deterministic hash of the feed blueprint (sources + ranking_weights)."""
+    # Get all sources for this feed
+    sources = (
+        FeedSource
+        .select()
+        .join(Feed)
+        .where(Feed.uri == feed_uri)
+        .order_by(FeedSource.source_type, FeedSource.identifier)  # Ensure consistent ordering
+    )
+    
+    # Build a deterministic representation of the blueprint
+    blueprint_data = {
+        "sources": [
+            {
+                "type": src.source_type,
+                "identifier": src.identifier,
+                "weight": src.weight
+            }
+            for src in sources
+        ],
+        "ranking_weights": get_ranking_weights(feed_uri)
+    }
+    
+    # Convert to JSON string with sorted keys for consistency
+    blueprint_json = json.dumps(blueprint_data, sort_keys=True)
+    
+    # Compute SHA256 hash
+    return hashlib.sha256(blueprint_json.encode()).hexdigest()
 
 def encode_onnx(texts):
     """Return embedding vectors using the ONNX model."""
@@ -354,8 +386,19 @@ def make_handler(feed_uri: str):
                 tasks.append(fetch_author_posts(src.identifier, limit))
             elif src.source_type == "topic_preference":
                 if src.identifier not in seen_queries:
-                    tasks.append(search_text(src.identifier, limit))
-                    tasks.append(search_vector(src.identifier, limit))
+                    # Check if this is an acronym
+                    is_acronym = getattr(src, 'is_acronym', 0)
+                    context = getattr(src, 'context', None)
+                    
+                    if is_acronym:
+                        # For acronyms: ONLY use vector search, optionally with context
+                        query = f"{context} {src.identifier}" if context else src.identifier
+                        tasks.append(search_vector(query, limit))
+                    else:
+                        # For regular terms: use both text and vector search
+                        tasks.append(search_text(src.identifier, limit))
+                        tasks.append(search_vector(src.identifier, limit))
+                    
                     seen_queries.add(src.identifier)
         results = await asyncio.gather(*tasks)
 
@@ -437,20 +480,30 @@ def make_handler(feed_uri: str):
             "feed": [{"post": p["uri"]} for p in filtered_posts[:FEED_LIMIT]]
         }
 
-        # Save to SQLite
+        # Compute current blueprint hash
+        current_blueprint_hash = compute_blueprint_hash(feed_uri)
+
+        # Save to SQLite with blueprint hash
         FeedCache.insert(
             feed_uri=feed_uri,
             response_json=json.dumps(feed),
             timestamp=int(time.time()),
-            oldest_timestamp=oldest_timestamp
+            oldest_timestamp=oldest_timestamp,
+            blueprint_hash=current_blueprint_hash
         ).on_conflict_replace().execute()
 
         return feed
 
     async def serve_from_cache(limit=10):
-        """Return cached feed if recent and posts are fresh, otherwise None."""
+        """Return cached feed if recent, blueprint matches, and posts are fresh, otherwise None."""
         row = FeedCache.get_or_none(FeedCache.feed_uri == feed_uri)
         if row is None:
+            return None
+
+        # Check if blueprint has changed - if so, invalidate cache
+        current_blueprint_hash = compute_blueprint_hash(feed_uri)
+        if row.blueprint_hash != current_blueprint_hash:
+            print(f"Blueprint changed for {feed_uri}, invalidating cache")
             return None
 
         cached_feed = json.loads(row.response_json)
@@ -491,13 +544,14 @@ def make_handler(feed_uri: str):
         cached = await serve_from_cache()  # always check for any available cache
 
         if not cached:
+            # No valid cache, rebuild immediately
             await maybe_build_feed(force=True)
             cached = await serve_from_cache()
 
         else:
             # Check if cache is over 5 minutes old, trigger background rebuild
             row = FeedCache.get_or_none(FeedCache.feed_uri == feed_uri)
-            if row and (time.time() - row.timestamp) > SEARCH_CACHE_TTL:
+            if row and (time.time() - row.timestamp) > FEED_CACHE_TTL:
                 asyncio.create_task(maybe_build_feed())  # Background rebuild
 
         feed_items = cached.get("feed", [])

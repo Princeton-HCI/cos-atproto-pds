@@ -10,6 +10,7 @@ class Feed(Model):
     description = TextField(null=True)
     avatar_path = TextField(null=True)
     ranking_weights = TextField(null=True)  # JSON string of ranking weights
+    blueprint_hash = TextField(null=True)  # Hash of sources + ranking_weights to detect blueprint changes
 
     class Meta:
         database = db
@@ -20,6 +21,8 @@ class FeedSource(Model):
     source_type = TextField()   # 'profile_preference', 'topic_preference', 'profile_filter', 'topic_filter'
     identifier = TextField()    # e.g., 'did:plc:example.bsky.social' or 'sports'
     weight = FloatField(default=0.5)  # numerical weight for this source
+    is_acronym = IntegerField(default=0)  # 1 if identifier is an acronym (use vector-only search)
+    context = TextField(null=True)  # Optional context for disambiguation (e.g., original prompt)
 
     class Meta:
         database = db
@@ -32,6 +35,7 @@ class FeedCache(Model):
     response_json = TextField()  # JSON string of {"cursor":..., "feed":[...]}
     timestamp = IntegerField()   # UNIX timestamp
     oldest_timestamp = IntegerField(null=True)  # UNIX timestamp of oldest post in feed
+    blueprint_hash = TextField(null=True)  # Hash of blueprint that generated this cache
 
     class Meta:
         database = db

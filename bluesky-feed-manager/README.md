@@ -1,6 +1,22 @@
 # 🚀 bluesky-feed-manager — Feed Deployment and Maintenance
 
-This guide walks through deploying your ATProto feed generator on a VM with Caddy and SSL, using Python, SQLite, and Uvicorn.
+A production-ready Bluesky feed generator service with intelligent caching, blueprint change detection, and personalized ranking. This service deploys custom feed generators on a VM with Caddy and SSL, using Python, SQLite, and Uvicorn.
+
+---
+
+## Features
+
+- **Two-tier intelligent caching system**:
+  - Short-term (30s) for search results to prevent API spam
+  - Long-term (5min) for complete feeds to prevent cold starts
+- **Blueprint change detection**: Automatic cache invalidation when feed sources or ranking weights change
+- **Personalized ranking**: Configurable weights for relevance, popularity, and recency
+- **Vector and text search**: Dual search modes using ONNX embeddings and keyword matching
+- **Feed filtering**: Support for topic and profile blacklists
+- **Background regeneration**: Non-blocking feed updates for optimal performance
+- **SQLite persistence**: Efficient local storage with automatic cleanup
+
+For detailed information on the caching implementation, see [CACHE_IMPLEMENTATION.md](CACHE_IMPLEMENTATION.md).
 
 ---
 
@@ -160,7 +176,19 @@ Save and exit when done.
 
 ---
 
-## 5. Run the Server
+## 5. Database Migration (First-time Setup or After Updates)
+
+If you're setting up the service for the first time or have pulled updates that include new database fields, run the migration script:
+
+```bash
+python migrate_add_blueprint_hash.py
+```
+
+This will add the necessary `blueprint_hash` columns to the database tables for cache invalidation. The migration is safe to run multiple times.
+
+---
+
+## 6. Run the Server
 
 First, make the server script executable:
 
@@ -210,7 +238,52 @@ _NOTE: It takes about 2-5 minutes for the servie to start running, so don't be d
 
 ---
 
-## 6: Install and Configure Caddy
+## 7. Cache Management
+
+The feed manager includes intelligent caching to optimize performance and prevent cold starts.
+
+### Understanding the Cache System
+
+The service implements a two-tier caching strategy:
+
+1. **Short-term cache (30 seconds)**: Caches search results to prevent rapid API re-fetching
+2. **Long-term cache (5 minutes)**: Caches complete feed generation to eliminate cold starts
+
+### Blueprint Change Detection
+
+The system automatically detects when a feed's blueprint changes (sources, weights, ranking) and invalidates the cache. This ensures:
+
+- Different blueprints never share cache data
+- Feed updates are immediately reflected
+- No stale content when configurations change
+
+### Cache Utilities
+
+The service includes utility scripts for cache management:
+
+**Clear all caches**:
+
+```bash
+python clear_cache.py all
+```
+
+**List cached feeds**:
+
+```bash
+python clear_cache.py list
+```
+
+**Clear a specific feed's cache**:
+
+```bash
+python clear_cache.py at://did:plc:example/app.bsky.feed.generator/feed-name
+```
+
+For detailed information on the caching implementation, see [CACHE_IMPLEMENTATION.md](CACHE_IMPLEMENTATION.md).
+
+---
+
+## 8: Install and Configure Caddy
 
 We can use Caddy to provide automatic HTTPS, handle incoming requests at /api, and reverse-proxy them to our backend service on port 8000, simplifying secure access to the API.
 
@@ -358,7 +431,7 @@ _NOTE: Having the https version of your domain working might take a few moments,
 
 ---
 
-## 7. Test the Service: Deploy a New Custom Feed (Dynamic Feed Creation)
+## 9. Test the Service: Deploy a New Custom Feed (Dynamic Feed Creation)
 
 Once your server is running and Caddy/SSL is configured, you can **create new custom feeds dynamically**—without editing code or restarting the service. This step verifies that your deployment works end-to-end.
 

@@ -1,18 +1,50 @@
 # 🌳 bonsai2 — Frontend for Feed Generation
 
-🌳 **Bonsai2** is a React-based feed builder UI that allows users to create, customize, and deploy personalized feeds with ease. This project integrates with a backend feed management API, uses Bluesky's agent for interacting with feeds, and leverages **Firebase Firestore** to persist custom feed rulesets so users can recover or tweak previously deployed feeds.
+🌳 **Bonsai2** is a React-based feed builder UI that provides two distinct interfaces for creating, customizing, and deploying personalized Bluesky feeds:
+
+1. **Bonsai Classic** — An optimized adaptation of the original [Bonsai system](https://arxiv.org/abs/2509.10776), featuring a structured, section-based interface for precise feed control with visual ranking presets
+2. **Bonsai v2** — A conversational, natural language interface that generates feed blueprints from user intent descriptions
+
+Both interfaces integrate with backend feed management APIs, use Bluesky's agent for feed interactions, and leverage **Firebase Firestore** to persist custom feed rulesets for recovery and modification.
+
+---
+
+## Interfaces
+
+### Bonsai Classic
+
+The Classic interface provides a structured approach to feed creation based on the research paper [_Bonsai: Growing Personalized Social Feeds on Bluesky_](https://arxiv.org/abs/2509.10776). This implementation features:
+
+- **Section-based organization**: "Get posts from", "Include posts about", "Limit posts about"
+- **Visual ranking presets**: Chronological, Engagement-focused, Relevant, Balanced
+- **Feed management**: Multiple saved blueprints with one active feed at a time
+- **Inline editing**: Modify topics and sources directly within each section
+- **Deterministic conversion**: Maps natural language topics to weighted preferences automatically
+
+### Bonsai v2
+
+The v2 interface offers a conversational approach to feed creation:
+
+- **Natural language input**: Describe your desired feed in plain English
+- **AI-powered generation**: Converts intent descriptions into feed blueprints
+- **Metadata editing**: Customize display name, description, and other feed properties
+- **Direct deployment**: Deploy feeds immediately or save for later
 
 ---
 
 ## Features
 
+- **Two distinct interfaces**: Classic (structured) and v2 (conversational)
 - Intuitive UI for building feed blueprints and editing metadata
+- **Acronym detection**: Automatically detects and handles short acronyms (e.g., "CHI", "HCI", "NBA") to avoid false positives from substring matching
 - Select and customize sources and ranking options
 - Encrypts sensitive data using AES-GCM encryption
 - Deploy feeds directly via an API endpoint
 - Integration with Bluesky for feed management and liking
 - Persist deployed feed blueprints in Firestore for recovery and reuse
 - Progress and error handling during deployment
+- **Classic-specific**: Feed list management, inline editing, unsaved changes tracking
+- **v2-specific**: Natural language intent processing, AI-powered ruleset generation
 
 ---
 
@@ -140,8 +172,34 @@ Your app will be available on the Firebase hosting URL provided after deployment
 
 ## Code Highlights
 
-- The `FeedBuilderUI` component manages feed creation, deployment, and Firestore persistence.
-- `bluesky.js` contains helper functions to fetch user feeds and resolve feed URIs to their respective CIDs.
-- Deployed feed blueprints are saved in Firestore so users can recover and tweak them.
-- Encryption and decryption utilities use AES-GCM via Web Crypto API.
-- Environment variables are accessed securely via `process.env.REACT_APP_*`.
+### Bonsai Classic Components
+
+- `BonsaiClassic.js`: Main container managing feed lifecycle (create, save, activate, copy, delete)
+- `FeedList.js`: Feed management view with active/inactive status tracking
+- `FeedHeader.js`: Editable feed title with save state management
+- `SectionOne.js`, `SectionTwo.js`, `SectionThree.js`: Color-coded content sections with inline editing
+- `RankingPresets.js`: Visual ranking weight presets
+- **localStorage-based persistence**: Feeds stored locally with `isActive` property tracking
+- **Blueprint conversion logic**: Maps between Classic UI weights (0.3, 0.65/1.0, 0.75/1.0) and standard API weights (0.5, 0.65/1.0, 0.5/1.0)
+
+### Bonsai v2 Components
+
+- `FeedBuilderUI` component manages feed creation, deployment, and Firestore persistence
+- Natural language intent processing via ruleset generator API
+- Deployed feed blueprints saved in Firestore for recovery
+
+### Shared Utilities
+
+- `bluesky.js`: Helper functions to fetch user feeds and resolve feed URIs to their respective CIDs
+- `crypto.js`: Encryption and decryption utilities using AES-GCM via Web Crypto API
+- `firebase.js`: Firestore integration for persistent feed storage
+- Environment variables accessed securely via `process.env.REACT_APP_*`
+
+---
+
+## Research
+
+Bonsai Classic is based on the research paper:
+
+**[Bonsai: Growing Personalized Social Feeds on Bluesky](https://arxiv.org/abs/2509.10776)**  
+_Optimized implementation with enhanced feed management, caching, and deployment features_

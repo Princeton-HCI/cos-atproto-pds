@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { H } from "../Typography";
 
 const SectionThree = ({ feedBlueprint, setFeedBlueprint }) => {
   const [editingIndex, setEditingIndex] = useState(null);
@@ -131,9 +132,9 @@ const SectionThree = ({ feedBlueprint, setFeedBlueprint }) => {
           >
             3
           </div>
-          <h2 style={{ margin: "0", fontSize: "24px", fontWeight: "600" }}>
+          <H style={{ margin: "0", fontSize: "24px", fontWeight: "600" }}>
             Limit posts about
-          </h2>
+          </H>
         </div>
 
         <div style={{ display: "flex", gap: "12px" }}>

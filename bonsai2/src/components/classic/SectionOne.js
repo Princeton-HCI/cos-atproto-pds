@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { H } from "../Typography";
 
 const SectionOne = ({ feedBlueprint, setFeedBlueprint }) => {
   const [editingIndex, setEditingIndex] = useState(null);
@@ -103,9 +104,9 @@ const SectionOne = ({ feedBlueprint, setFeedBlueprint }) => {
           >
             1
           </div>
-          <h2 style={{ margin: "0", fontSize: "24px", fontWeight: "600" }}>
+          <H style={{ margin: "0", fontSize: "24px", fontWeight: "600" }}>
             Get posts from
-          </h2>
+          </H>
         </div>
 
         <div style={{ display: "flex", gap: "12px" }}>
@@ -209,7 +210,7 @@ const SectionOne = ({ feedBlueprint, setFeedBlueprint }) => {
                     >
                       {isEmpty ? "Enter topic name" : `Search "${topic.name}"`}
                     </span>
-                    {!isEmpty && (
+                    {/* {!isEmpty && (
                       <span
                         style={{
                           color: "#9ca3af",
@@ -220,7 +221,7 @@ const SectionOne = ({ feedBlueprint, setFeedBlueprint }) => {
                       >
                         ⓘ
                       </span>
-                    )}
+                    )} */}
                   </>
                 )}
               </div>
@@ -235,7 +236,6 @@ const SectionOne = ({ feedBlueprint, setFeedBlueprint }) => {
                           border: "none",
                           cursor: "pointer",
                           fontSize: "20px",
-                          color: "#10b981",
                           padding: "0",
                         }}
                         title="Save"

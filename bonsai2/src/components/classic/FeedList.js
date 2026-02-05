@@ -1,3 +1,5 @@
+import { H, P } from "../Typography";
+
 const FeedList = ({
   feeds,
   activeFeedId,
@@ -22,9 +24,9 @@ const FeedList = ({
   return (
     <div style={{ padding: "20px 0" }}>
       <div style={{ marginBottom: "32px" }}>
-        <h1
+        <H
           style={{
-            fontSize: "48px",
+            fontSize: "32px",
             fontWeight: "700",
             margin: "0 0 16px 0",
             color: "#1a1a1a",
@@ -32,8 +34,8 @@ const FeedList = ({
           }}
         >
           Manage Feeds
-        </h1>
-        <p
+        </H>
+        <P
           style={{
             fontSize: "18px",
             color: "#6b7280",
@@ -42,17 +44,17 @@ const FeedList = ({
           }}
         >
           Create, organize, and switch between your content feeds
-        </p>
+        </P>
         <button
           onClick={onNewFeed}
           style={{
             width: "100%",
-            padding: "16px 32px",
+            padding: "6px 32px",
             background: "white",
-            border: "2px solid #e5e7eb",
-            borderRadius: "12px",
+            border: "1px solid #e5e7eb",
+            borderRadius: "8px",
             cursor: "pointer",
-            fontSize: "18px",
+            fontSize: "14px",
             fontWeight: "600",
             display: "flex",
             alignItems: "center",
@@ -61,13 +63,13 @@ const FeedList = ({
             color: "#1a1a1a",
           }}
         >
-          <span style={{ fontSize: "24px" }}>+</span> New feed
+          <span style={{ fontSize: "20px" }}>+</span> New feed
         </button>
       </div>
 
       {feeds.length > 0 && (
         <div>
-          <h2
+          <H
             style={{
               fontSize: "28px",
               fontWeight: "700",
@@ -76,7 +78,7 @@ const FeedList = ({
             }}
           >
             Your feeds
-          </h2>
+          </H>
 
           <div
             style={{ display: "flex", flexDirection: "column", gap: "16px" }}
@@ -89,8 +91,8 @@ const FeedList = ({
                   style={{
                     background: "white",
                     border: isActive
-                      ? "2px solid #0ea5e9"
-                      : "2px solid #e5e7eb",
+                      ? "1px solid #0ea5e9"
+                      : "1px solid #e5e7eb",
                     borderRadius: "12px",
                     padding: "24px",
                     position: "relative",
@@ -113,7 +115,7 @@ const FeedList = ({
                           marginBottom: "8px",
                         }}
                       >
-                        <h3
+                        <H
                           style={{
                             margin: "0",
                             fontSize: "24px",
@@ -122,7 +124,7 @@ const FeedList = ({
                           }}
                         >
                           {feed.name}
-                        </h3>
+                        </H>
                         {isActive && (
                           <span
                             style={{
@@ -161,7 +163,7 @@ const FeedList = ({
                           width: "48px",
                           height: "48px",
                           background: "white",
-                          border: "2px solid #e5e7eb",
+                          border: "1px solid #e5e7eb",
                           borderRadius: "8px",
                           cursor: "pointer",
                           fontSize: "20px",
@@ -179,7 +181,7 @@ const FeedList = ({
                           width: "48px",
                           height: "48px",
                           background: "white",
-                          border: "2px solid #e5e7eb",
+                          border: "1px solid #e5e7eb",
                           borderRadius: "8px",
                           cursor: "pointer",
                           fontSize: "20px",
@@ -201,7 +203,7 @@ const FeedList = ({
                         flex: 1,
                         padding: "12px 32px",
                         background: "white",
-                        border: "2px solid #0ea5e9",
+                        border: "1px solid #0ea5e9",
                         borderRadius: "8px",
                         cursor: "pointer",
                         fontSize: "16px",
@@ -218,7 +220,7 @@ const FeedList = ({
                           flex: 1,
                           padding: "12px 32px",
                           background: "white",
-                          border: "2px solid #e5e7eb",
+                          border: "1px solid #e5e7eb",
                           borderRadius: "8px",
                           cursor: "pointer",
                           fontSize: "16px",

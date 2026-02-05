@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { H } from "../Typography";
 
 const FeedHeader = ({
   feedName,
@@ -111,7 +112,7 @@ const FeedHeader = ({
           </div>
         ) : (
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <h1
+            <H
               style={{
                 margin: "0",
                 fontSize: "32px",
@@ -120,7 +121,7 @@ const FeedHeader = ({
               }}
             >
               {feedName || "Untitled Feed"}
-            </h1>
+            </H>
             <button
               onClick={handleEdit}
               style={{
@@ -144,9 +145,9 @@ const FeedHeader = ({
         style={{
           position: "absolute",
           right: 0,
-          padding: "12px 32px",
+          padding: "6px 12px",
           background: "white",
-          border: "2px solid #e5e7eb",
+          border: "1px solid #e5e7eb",
           borderRadius: "8px",
           fontSize: "18px",
           fontWeight: "600",

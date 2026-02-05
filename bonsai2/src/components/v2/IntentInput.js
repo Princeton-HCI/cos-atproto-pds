@@ -1,5 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
+import { H, P } from "../Typography";
 import Panel from "../Panel";
 
 const IntentInput = ({ setFeedBlueprint, setFeedMetadata }) => {
@@ -91,10 +92,22 @@ const IntentInput = ({ setFeedBlueprint, setFeedMetadata }) => {
       {loading && (
         <div className="loading-overlay">
           <div className="loading-content">
-            <p className="loading-text">🌳 Generating your feed ruleset!</p>
-            <p className="loading-text">
+            <P
+              className="loading-text"
+              style={{
+                fontSize: "20px",
+                fontWeight: "600",
+                marginBottom: "1rem",
+              }}
+            >
+              🌳 Generating your feed ruleset!
+            </P>
+            <P
+              className="loading-text"
+              style={{ fontSize: "14px", marginBottom: "1rem" }}
+            >
               This process usually takes around a minute or less...
-            </p>
+            </P>
 
             <div className="progress-container">
               <div

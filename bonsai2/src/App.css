@@ -247,17 +247,18 @@
   font-size: 14px;
 }
 .primary-btn {
-  background: #007aff;
-  color: white;
-  padding: 8px 14px;
-  border-radius: 6px;
-  border: none;
+  background: white;
+  color: #1a1a1a;
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
   cursor: pointer;
   margin-top: 16px;
-  font-weight: bold;
+  font-weight: 600;
+  font-size: 14px;
 }
 .primary-btn:hover {
-  background: #0060d4;
+  background: #f9fafb;
 }
 .deploy-btn {
   background: #007aff;

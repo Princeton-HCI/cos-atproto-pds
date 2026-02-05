@@ -1,7 +1,14 @@
+import { H } from "./Typography";
+
 const Panel = ({ title, children }) => {
   return (
     <div className="panel">
-      <h3 className="panel-title">{title}</h3>
+      <H
+        className="panel-title"
+        style={{ fontSize: "16px", fontWeight: "600", margin: "0 0 12px" }}
+      >
+        {title}
+      </H>
       {children}
     </div>
   );

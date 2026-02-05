@@ -2,6 +2,7 @@ import { useState } from "react";
 import axios from "axios";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "../../utils/firebase";
+import { P } from "../Typography";
 import IntentInput from "./IntentInput";
 import SourceSelector from "./SourceSelector";
 import RankingSelector from "./RankingSelector";
@@ -134,10 +135,22 @@ const FeedBuilderUI = ({ credentials, setCredentials, onToggleUI }) => {
             {loading && (
               <div className="loading-overlay">
                 <div className="loading-content">
-                  <p className="loading-text">🚀 Deploying your feed!</p>
-                  <p className="loading-text">
+                  <P
+                    className="loading-text"
+                    style={{
+                      fontSize: "20px",
+                      fontWeight: "600",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    🚀 Deploying your feed!
+                  </P>
+                  <P
+                    className="loading-text"
+                    style={{ fontSize: "14px", marginBottom: "1rem" }}
+                  >
                     This usually takes a few seconds...
-                  </p>
+                  </P>
 
                   <div className="progress-container">
                     <div
@@ -162,10 +175,22 @@ const FeedBuilderUI = ({ credentials, setCredentials, onToggleUI }) => {
                     ✕
                   </button>
 
-                  <p className="loading-text">🦋 Feed deployed successfully!</p>
-                  <p className="loading-text">
+                  <P
+                    className="loading-text"
+                    style={{
+                      fontSize: "20px",
+                      fontWeight: "600",
+                      marginBottom: "1rem",
+                    }}
+                  >
+                    🦋 Feed deployed successfully!
+                  </P>
+                  <P
+                    className="loading-text"
+                    style={{ fontSize: "14px", marginBottom: "1rem" }}
+                  >
                     You can check out your new feed here:
-                  </p>
+                  </P>
 
                   <small className="success-message">
                     <a

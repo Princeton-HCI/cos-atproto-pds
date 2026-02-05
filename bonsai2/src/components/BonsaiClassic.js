@@ -1,5 +1,14 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import {
+  collection,
+  getDocs,
+  doc,
+  setDoc,
+  deleteDoc,
+} from "firebase/firestore";
+import { db } from "../utils/firebase";
+import { H, P } from "./Typography";
 import Header from "./Header";
 import FeedList from "./classic/FeedList";
 import FeedHeader from "./classic/FeedHeader";
@@ -15,11 +24,11 @@ const RANKING_PRESETS = {
   trending: { relevance: 0.1, popularity: 0.7, recency: 0.2 },
 };
 
-const STORAGE_KEY = "bonsai_classic_feeds";
-const ACTIVE_FEED_KEY = "bonsai_classic_active_feed";
+const FIRESTORE_COLLECTION = "bonsai-classic-user-feeds";
 
 const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
   const username = credentials?.handle?.split(".")[0] || "user";
+  const userDid = credentials?.session?.did;
 
   // View states: 'list' | 'create' | 'edit'
   const [view, setView] = useState("list");
@@ -44,21 +53,51 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
   const [rankingStyle, setRankingStyle] = useState("balanced");
   const [isDeploying, setIsDeploying] = useState(false);
   const [deployProgress, setDeployProgress] = useState(0);
+  const [deploySuccess, setDeploySuccess] = useState(false);
+  const [deployedFeedUrl, setDeployedFeedUrl] = useState("");
 
-  // Load feeds from localStorage on mount
+  // Load feeds from Firestore on mount
   useEffect(() => {
-    const storedFeeds = localStorage.getItem(STORAGE_KEY);
-    const storedActiveId = localStorage.getItem(ACTIVE_FEED_KEY);
+    const loadFeeds = async () => {
+      if (!userDid) return;
 
-    if (storedFeeds) {
-      const parsedFeeds = JSON.parse(storedFeeds);
-      setFeeds(parsedFeeds);
-    }
+      try {
+        // Create user document if it doesn't exist
+        const userDocRef = doc(db, FIRESTORE_COLLECTION, userDid);
+        await setDoc(userDocRef, { created: true }, { merge: true });
 
-    if (storedActiveId) {
-      setActiveFeedId(storedActiveId);
-    }
-  }, []);
+        const feedsCollectionRef = collection(
+          db,
+          FIRESTORE_COLLECTION,
+          userDid,
+          "feeds",
+        );
+        const querySnapshot = await getDocs(feedsCollectionRef);
+        const loadedFeeds = [];
+        let activeId = null;
+
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          loadedFeeds.push({
+            id: doc.id,
+            ...data,
+          });
+          if (data.isActive) {
+            activeId = doc.id;
+          }
+        });
+
+        setFeeds(loadedFeeds);
+        if (activeId) {
+          setActiveFeedId(activeId);
+        }
+      } catch (err) {
+        console.error("Failed to load feeds from Firestore:", err);
+      }
+    };
+
+    loadFeeds();
+  }, [userDid]);
 
   const feedMetadata = {
     display_name: feedName,
@@ -115,34 +154,58 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
     setHasGenerated(false);
   };
 
-  const handleSaveFeed = () => {
+  const handleSaveFeed = async () => {
+    if (!userDid) {
+      console.error("User DID is not available");
+      alert("Unable to save feed. Please log in again.");
+      return;
+    }
+
     const feedId = currentFeedId || Date.now().toString();
     const feedData = {
-      id: feedId,
       name: feedName || "Untitled Feed",
       blueprint: feedBlueprint,
       rankingStyle,
+      username,
       createdAt: currentFeedId
         ? feeds.find((f) => f.id === currentFeedId)?.createdAt
         : Date.now(),
       updatedAt: Date.now(),
+      isActive: feeds.find((f) => f.id === currentFeedId)?.isActive || false,
     };
 
-    let updatedFeeds;
-    if (currentFeedId) {
-      // Update existing feed
-      updatedFeeds = feeds.map((f) => (f.id === currentFeedId ? feedData : f));
-    } else {
-      // Create new feed
-      updatedFeeds = [...feeds, feedData];
-      setCurrentFeedId(feedId);
-    }
+    try {
+      await setDoc(
+        doc(db, FIRESTORE_COLLECTION, userDid, "feeds", feedId),
+        feedData,
+      );
 
-    setFeeds(updatedFeeds);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedFeeds));
+      let updatedFeeds;
+      if (currentFeedId) {
+        // Update existing feed
+        updatedFeeds = feeds.map((f) =>
+          f.id === currentFeedId ? { id: feedId, ...feedData } : f,
+        );
+      } else {
+        // Create new feed
+        updatedFeeds = [...feeds, { id: feedId, ...feedData }];
+        setCurrentFeedId(feedId);
+      }
+
+      setFeeds(updatedFeeds);
+    } catch (err) {
+      console.error("Failed to save feed to Firestore:", err);
+      alert("Failed to save feed. Please try again.");
+    }
   };
 
   const handleActivateFeedFromList = async (feedId) => {
+    if (!userDid) {
+      console.error("User DID is not available");
+      alert("Unable to activate feed. Please log in again.");
+      return;
+    }
+
     const feed = feeds.find((f) => f.id === feedId);
     if (!feed) return;
 
@@ -226,16 +289,34 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
       apiComplete = true;
       console.log("Feed deployed:", response.data);
 
-      // Update feeds to set isActive property
+      const feedUri = response.data.uri;
+      const feedUrl = `https://bsky.app/profile/${feedUri.split("/")[2]}/feed/${
+        feedUri.split("/")[4]
+      }`;
+      setDeployedFeedUrl(feedUrl);
+
+      // Update feeds to set isActive property in Firestore
       const updatedFeeds = feeds.map((f) => ({
         ...f,
         isActive: f.id === feedId,
       }));
       setFeeds(updatedFeeds);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedFeeds));
+
+      // Update all feeds in Firestore
+      for (const feed of updatedFeeds) {
+        await setDoc(doc(db, FIRESTORE_COLLECTION, userDid, "feeds", feed.id), {
+          name: feed.name,
+          blueprint: feed.blueprint,
+          rankingStyle: feed.rankingStyle,
+          username: feed.username,
+          createdAt: feed.createdAt,
+          updatedAt: feed.updatedAt,
+          isActive: feed.isActive,
+        });
+      }
 
       setActiveFeedId(feedId);
-      localStorage.setItem(ACTIVE_FEED_KEY, feedId);
+      setDeploySuccess(true);
     } catch (err) {
       console.error("Failed to deploy feed:", err);
       setIsDeploying(false);
@@ -244,9 +325,15 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
   };
 
   const handleActivateCurrentFeed = async () => {
+    if (!userDid) {
+      console.error("User DID is not available");
+      alert("Unable to activate feed. Please log in again.");
+      return;
+    }
+
     // Save first if there are unsaved changes
     if (hasUnsavedChanges()) {
-      handleSaveFeed();
+      await handleSaveFeed();
     }
 
     const feedId = currentFeedId || Date.now().toString();
@@ -337,6 +424,12 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
       apiComplete = true;
       console.log("Feed deployed:", response.data);
 
+      const feedUri = response.data.uri;
+      const feedUrl = `https://bsky.app/profile/${feedUri.split("/")[2]}/feed/${
+        feedUri.split("/")[4]
+      }`;
+      setDeployedFeedUrl(feedUrl);
+
       // Update feeds to set isActive property
       let updatedFeeds = feeds.map((f) => ({
         ...f,
@@ -350,6 +443,7 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
           name: feedName || "Untitled Feed",
           blueprint: feedBlueprint,
           rankingStyle,
+          username,
           createdAt: Date.now(),
           updatedAt: Date.now(),
           isActive: true,
@@ -361,10 +455,23 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
       }
 
       setFeeds(updatedFeeds);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedFeeds));
+
+      // Update all feeds in Firestore
+      for (const feed of updatedFeeds) {
+        await setDoc(doc(db, FIRESTORE_COLLECTION, userDid, "feeds", feed.id), {
+          name: feed.name,
+          blueprint: feed.blueprint,
+          rankingStyle: feed.rankingStyle,
+          username: feed.username,
+          createdAt: feed.createdAt,
+          updatedAt: feed.updatedAt,
+          isActive: feed.isActive,
+        });
+      }
 
       setActiveFeedId(feedId);
-      localStorage.setItem(ACTIVE_FEED_KEY, feedId);
+      setCurrentFeedId(feedId);
+      setDeploySuccess(true);
     } catch (err) {
       console.error("Failed to deploy feed:", err);
       setIsDeploying(false);
@@ -372,37 +479,66 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
     }
   };
 
-  const handleCopyFeed = (feedId) => {
+  const handleCopyFeed = async (feedId) => {
+    if (!userDid) {
+      console.error("User DID is not available");
+      alert("Unable to copy feed. Please log in again.");
+      return;
+    }
+
     const feed = feeds.find((f) => f.id === feedId);
     if (!feed) return;
 
+    const newFeedId = Date.now().toString();
     const newFeed = {
-      ...feed,
-      id: Date.now().toString(),
       name: `${feed.name} (Copy)`,
+      blueprint: feed.blueprint,
+      rankingStyle: feed.rankingStyle,
+      username,
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      isActive: false,
     };
 
-    const updatedFeeds = [...feeds, newFeed];
-    setFeeds(updatedFeeds);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedFeeds));
-    alert("Feed copied!");
+    try {
+      await setDoc(
+        doc(db, FIRESTORE_COLLECTION, userDid, "feeds", newFeedId),
+        newFeed,
+      );
+
+      const updatedFeeds = [...feeds, { id: newFeedId, ...newFeed }];
+      setFeeds(updatedFeeds);
+      alert("Feed copied!");
+    } catch (err) {
+      console.error("Failed to copy feed:", err);
+      alert("Failed to copy feed. Please try again.");
+    }
   };
 
-  const handleDeleteFeed = (feedId) => {
-    if (!window.confirm("Are you sure you want to delete this feed?")) return;
-
-    const updatedFeeds = feeds.filter((f) => f.id !== feedId);
-    setFeeds(updatedFeeds);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedFeeds));
-
-    if (activeFeedId === feedId) {
-      setActiveFeedId(null);
-      localStorage.removeItem(ACTIVE_FEED_KEY);
+  const handleDeleteFeed = async (feedId) => {
+    if (!userDid) {
+      console.error("User DID is not available");
+      alert("Unable to delete feed. Please log in again.");
+      return;
     }
 
-    alert("Feed deleted!");
+    if (!window.confirm("Are you sure you want to delete this feed?")) return;
+
+    try {
+      await deleteDoc(doc(db, FIRESTORE_COLLECTION, userDid, "feeds", feedId));
+
+      const updatedFeeds = feeds.filter((f) => f.id !== feedId);
+      setFeeds(updatedFeeds);
+
+      if (activeFeedId === feedId) {
+        setActiveFeedId(null);
+      }
+
+      alert("Feed deleted!");
+    } catch (err) {
+      console.error("Failed to delete feed:", err);
+      alert("Failed to delete feed. Please try again.");
+    }
   };
 
   const handleGenerateFeed = async () => {
@@ -538,21 +674,46 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
           // Initial intent input screen
           <div
             style={{
-              padding: "60px 20px",
+              padding: "20px 0",
               textAlign: "center",
             }}
           >
-            <h1
+            <div
               style={{
-                fontSize: "36px",
-                fontWeight: "700",
-                margin: "0 0 16px 0",
-                color: "#1a1a1a",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                position: "relative",
+                marginBottom: "16px",
               }}
             >
-              Create your feed
-            </h1>
-            <p
+              <button
+                onClick={handleBackToList}
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  background: "none",
+                  border: "none",
+                  fontSize: "32px",
+                  cursor: "pointer",
+                  padding: "0",
+                  color: "#6b7280",
+                }}
+              >
+                ←
+              </button>
+              <H
+                style={{
+                  fontSize: "32px",
+                  fontWeight: "700",
+                  margin: "0",
+                  color: "#1a1a1a",
+                }}
+              >
+                Create your feed
+              </H>
+            </div>
+            <P
               style={{
                 fontSize: "18px",
                 color: "#6b7280",
@@ -560,13 +721,8 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
               }}
             >
               Customize your feed sources and content preferences
-            </p>
-            <div
-              style={{
-                maxWidth: "600px",
-                margin: "0 auto",
-              }}
-            >
+            </P>
+            <div>
               <textarea
                 value={feedIntent}
                 onChange={(e) => setFeedIntent(e.target.value)}
@@ -595,17 +751,18 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
                 disabled={!feedIntent.trim() || isGenerating}
                 style={{
                   width: "100%",
-                  padding: "16px",
+                  padding: "6px 32px",
                   background:
-                    !feedIntent.trim() || isGenerating ? "#ccc" : "#3b82f6",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "12px",
+                    !feedIntent.trim() || isGenerating ? "#f3f4f6" : "white",
+                  color:
+                    !feedIntent.trim() || isGenerating ? "#9ca3af" : "#1a1a1a",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: "8px",
                   cursor:
                     !feedIntent.trim() || isGenerating
                       ? "not-allowed"
                       : "pointer",
-                  fontSize: "18px",
+                  fontSize: "14px",
                   fontWeight: "600",
                   boxSizing: "border-box",
                 }}
@@ -634,7 +791,7 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  background: "rgba(0, 0, 0, 0.5)",
+                  background: "rgba(0, 0, 0, 0.6)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -644,38 +801,38 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
                 <div
                   style={{
                     background: "white",
-                    borderRadius: "16px",
-                    padding: "40px",
-                    maxWidth: "500px",
+                    borderRadius: "8px",
+                    padding: "2rem",
+                    maxWidth: "400px",
                     width: "90%",
                     textAlign: "center",
                   }}
                 >
-                  <p
+                  <P
                     style={{
                       fontSize: "20px",
                       fontWeight: "600",
-                      margin: "0 0 12px 0",
+                      margin: "0 0 1rem 0",
                       color: "#1f2937",
                     }}
                   >
                     🌳 Generating your feed ruleset!
-                  </p>
-                  <p
+                  </P>
+                  <P
                     style={{
                       fontSize: "14px",
                       color: "#6b7280",
-                      margin: "0 0 24px 0",
+                      margin: "0 0 1rem 0",
                     }}
                   >
                     This process usually takes around a minute or less...
-                  </p>
+                  </P>
                   <div
                     style={{
                       width: "100%",
-                      height: "8px",
-                      background: "#e5e7eb",
-                      borderRadius: "4px",
+                      height: "10px",
+                      background: "#eee",
+                      borderRadius: "5px",
                       overflow: "hidden",
                     }}
                   >
@@ -683,7 +840,7 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
                       style={{
                         width: `${progress}%`,
                         height: "100%",
-                        background: "#3b82f6",
+                        background: "#4caf50",
                         transition: "width 0.3s ease",
                       }}
                     />
@@ -779,7 +936,7 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
                 textAlign: "center",
               }}
             >
-              <p
+              <P
                 style={{
                   fontSize: "20px",
                   fontWeight: "600",
@@ -788,8 +945,8 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
                 }}
               >
                 🚀 Deploying your feed!
-              </p>
-              <p
+              </P>
+              <P
                 style={{
                   fontSize: "14px",
                   color: "#6b7280",
@@ -797,7 +954,7 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
                 }}
               >
                 This process usually takes around a minute or less...
-              </p>
+              </P>
               <div
                 style={{
                   width: "100%",
@@ -816,6 +973,102 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
                   }}
                 />
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Deployment Success Modal */}
+        {deploySuccess && !isDeploying && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: "rgba(0, 0, 0, 0.6)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1000,
+            }}
+          >
+            <div
+              style={{
+                background: "white",
+                borderRadius: "16px",
+                padding: "40px",
+                maxWidth: "500px",
+                width: "90%",
+                textAlign: "center",
+                position: "relative",
+              }}
+            >
+              <button
+                onClick={() => {
+                  setDeploySuccess(false);
+                  setView("list");
+                }}
+                style={{
+                  position: "absolute",
+                  top: "16px",
+                  right: "16px",
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  cursor: "pointer",
+                  color: "#9ca3af",
+                  padding: "0",
+                  width: "32px",
+                  height: "32px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+
+              <P
+                style={{
+                  fontSize: "20px",
+                  fontWeight: "600",
+                  margin: "0 0 12px 0",
+                  color: "#1f2937",
+                }}
+              >
+                🦋 Feed deployed successfully!
+              </P>
+              <P
+                style={{
+                  fontSize: "14px",
+                  color: "#6b7280",
+                  margin: "0 0 16px 0",
+                }}
+              >
+                Your active ruleset for your custom feed has been successfully
+                deployed.
+              </P>
+              {deployedFeedUrl && (
+                <a
+                  href={deployedFeedUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: "inline-block",
+                    padding: "12px 24px",
+                    background: "#3b82f6",
+                    color: "white",
+                    textDecoration: "none",
+                    borderRadius: "8px",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                  }}
+                >
+                  View on Bluesky
+                </a>
+              )}
             </div>
           </div>
         )}

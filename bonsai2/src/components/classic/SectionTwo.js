@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { H } from "../Typography";
 
 const SectionTwo = ({ feedBlueprint, setFeedBlueprint }) => {
   const [editingIndex, setEditingIndex] = useState(null);
@@ -133,9 +134,9 @@ const SectionTwo = ({ feedBlueprint, setFeedBlueprint }) => {
           >
             2
           </div>
-          <h2 style={{ margin: "0", fontSize: "24px", fontWeight: "600" }}>
+          <H style={{ margin: "0", fontSize: "24px", fontWeight: "600" }}>
             Include posts about
-          </h2>
+          </H>
         </div>
 
         <div style={{ display: "flex", gap: "12px" }}>

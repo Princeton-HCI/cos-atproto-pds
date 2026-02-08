@@ -331,11 +331,6 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
       return;
     }
 
-    // Save first if there are unsaved changes
-    if (hasUnsavedChanges()) {
-      await handleSaveFeed();
-    }
-
     const feedId = currentFeedId || Date.now().toString();
 
     setIsDeploying(true);
@@ -430,11 +425,24 @@ const BonsaiClassic = ({ credentials, setCredentials, onToggleUI }) => {
       }`;
       setDeployedFeedUrl(feedUrl);
 
-      // Update feeds to set isActive property
-      let updatedFeeds = feeds.map((f) => ({
-        ...f,
-        isActive: f.id === feedId,
-      }));
+      // Update feeds to set isActive property and save current feed data
+      let updatedFeeds = feeds.map((f) => {
+        if (f.id === feedId) {
+          // Update the current feed with latest data
+          return {
+            ...f,
+            name: feedName || "Untitled Feed",
+            blueprint: feedBlueprint,
+            rankingStyle,
+            updatedAt: Date.now(),
+            isActive: true,
+          };
+        }
+        return {
+          ...f,
+          isActive: false,
+        };
+      });
 
       // If this is a new feed (not in feeds array yet), add it
       if (!feeds.find((f) => f.id === feedId)) {
